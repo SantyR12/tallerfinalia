@@ -1,0 +1,17 @@
+# Procesamiento de video
+opencv-python>=4.9
+numpy
+
+# Redes neuronales (la CNN y el Transformer se entrenan desde cero con Keras)
+tensorflow>=2.16
+
+# Evaluación del entrenamiento (reporte, matriz de confusión, curvas)
+scikit-learn
+matplotlib
+
+# Aplicación web
+streamlit>=1.50
+pandas
+
+# Pruebas
+pytest

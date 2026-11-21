@@ -1,0 +1,47 @@
+# ----------------------------------------------------------------------------
+# Modelos entrenados: no se suben. Cada quien los genera con los scripts de
+# entrenamiento/ (ver README). Sí se conservan las gráficas y el reporte del
+# entrenamiento de la CNN, que están en modelos/entrenamiento_cnn/.
+# ----------------------------------------------------------------------------
+modelos/*.keras
+modelos/*.h5
+modelos/*.json
+*.pt
+*.onnx
+
+# Videos de prueba y resultados de cada análisis
+data/*
+!data/.gitkeep
+salidas/*
+!salidas/.gitkeep
+
+# Dataset de imágenes: se descarga aparte, y su CSV tiene rutas del computador
+datos/dataset_objetos.csv
+dataset/
+datasets/
+MIO-TCD*/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+*.egg-info/
+build/
+dist/
+
+# Entornos virtuales y variables de entorno
+.venv/
+venv/
+env/
+.env
+
+# Editores y sistema operativo
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Temporales y registros
+*.log
+*.tmp
