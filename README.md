@@ -32,7 +32,7 @@ python3 -m venv .venv
 source .venv/bin/activate            # en Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-# 3. Comprobar la instalación: debe terminar con "58 passed"
+# 3. Comprobar la instalación: debe terminar con "59 passed"
 python -m pytest tests -q
 
 # 4. Entrenar las redes (los modelos no vienen en el repositorio)
@@ -199,7 +199,7 @@ La tecla `Q` detiene el análisis. Opciones: `--sin-ventana`, `--max-frames 300`
 ├── datos/                    CSV de los datasets
 ├── modelos/                  Redes entrenadas (no se suben) y resultados del entrenamiento
 ├── tests/                    Pruebas automáticas
-├── docs/                     Documentación e informe
+├── docs/                     Informe, presentación, guion y explicación del código
 ├── data/                     Videos de prueba (no se suben al repositorio)
 └── salidas/                  Resultados (no se suben al repositorio)
 ```

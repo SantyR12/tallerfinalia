@@ -111,6 +111,10 @@ En los videos reales el seguimiento suele perder al vehículo que viene rápido 
 
 La misma idea se aplica cuando los dos sí se ven fundidos: con una alerta de riesgo previa basta que sigan juntos 1,2 segundos y que la mancha haya cambiado su movimiento. Una moto que alcanza a un carro y sigue a su lado no cambia el movimiento del carro, y no cuenta.
 
+### Un choque, una alerta
+
+Al golpearse, un vehículo puede quedar en contacto con dos manchas a la vez: el otro vehículo y un pedazo suyo que el seguimiento tomó por un objeto nuevo. Las dos parejas cumplen la regla, pero el choque es uno solo. Por eso un objeto que ya participó en una colisión reportada no genera otra durante 3 segundos (`ENFRIAMIENTO_S`), sin importar cuál de las reglas la detecte.
+
 ### Frenada imposible (`_revisar_impacto`)
 
 Un vehículo que venía de forma sostenida a más de 1,5 tamaños por segundo y 0,4 segundos después está casi quieto. Ningún freno detiene un carro así; solo un golpe. Sirve para los choques contra un poste o un muro, y contra un vehículo que el sistema no venía siguiendo. Se exige que la velocidad sea sostenida (tres mediciones seguidas) porque un salto aislado de la caja también parece velocidad.

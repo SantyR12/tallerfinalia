@@ -282,6 +282,22 @@ def test_choque_anunciado_aunque_se_pierda_a_uno_de_los_dos():
     assert set(colision.ids) == {1, 2} and "anunciado" in colision.descripcion
 
 
+def test_un_mismo_choque_no_se_reporta_dos_veces():
+    """
+    Tras el golpe, un vehículo puede quedar en contacto con dos manchas a la vez
+    (el otro vehículo y un pedazo suyo con ID nuevo). Las dos parejas cumplen la
+    regla en el mismo fotograma, pero el choque es uno solo.
+    """
+    analizador = AnalizadorEventos(fps=FPS)
+    analizador.actualizar(0, [Det(n, "vehiculo", caja(100 * n, 300, 80, 50)) for n in (1, 2, 3)])
+    uno, dos, tres = (analizador.pistas[n] for n in (1, 2, 3))
+    assert analizador._emitir("colision", "ALTO", 60, 2.0, (uno, dos), "choque") is not None
+    assert analizador._emitir("colision", "ALTO", 60, 2.0, (uno, tres), "el mismo choque") is None
+    assert analizador._emitir("colision", "ALTO", 75, 2.5, (uno,), "el mismo choque") is None
+    # Pasado un rato sí puede haber otro choque con el mismo vehículo
+    assert analizador._emitir("colision", "ALTO", 240, 8.0, (uno, tres), "otro choque") is not None
+
+
 def test_riesgo_que_no_se_cumple_no_es_colision():
     """Se avisa del riesgo, pero el otro pasa de largo y cada uno sigue como venía."""
     def escena(f):

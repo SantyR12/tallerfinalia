@@ -204,6 +204,7 @@ class AnalizadorEventos:
         self.riesgo_reciente = {}   # id -> momento de su última alerta de riesgo
         self.anuncios = {}          # id -> cómo estaba el objeto cuando se avisó del riesgo
         self.ultima_alerta = {}     # (tipo, ids) -> tiempo de la última alerta
+        self.ultima_colision = {}   # id -> momento de la última colisión en que participó
         self.registro = {}          # id -> (clase, observaciones), para el resumen
         self.eventos = []           # todos los eventos detectados
         self.frames_procesados = 0
@@ -278,8 +279,7 @@ class AnalizadorEventos:
         # 5. Revisar si un choque anunciado ocurrió aunque se haya perdido a uno de los dos
         for p in visibles:
             evento = self._revisar_riesgo_cumplido(p, visibles, frame, tiempo)
-            ya_reportado = any(e.tipo == "colision" and p.id in e.ids for e in nuevos)
-            if evento and not ya_reportado:
+            if evento:
                 nuevos.append(evento)
 
         # 6. Revisar caídas de personas
@@ -445,14 +445,6 @@ class AnalizadorEventos:
             return None
 
         estado["reportado"] = True
-        # Un mismo choque no se reporta dos veces: se omite si hace poco hubo
-        # otro con algún ID en común.
-        for e in reversed(self.eventos):
-            if tiempo - e.tiempo_s > config.ENFRIAMIENTO_S:
-                break
-            if e.tipo == "colision" and set(e.ids) & {a.id, b.id}:
-                return None
-
         descripcion = (
             f"Posible colisión entre {nombre(a)} y {nombre(b)} "
             f"en el segundo {tiempo:.1f} ({motivo})"
@@ -532,11 +524,8 @@ class AnalizadorEventos:
 
         del self.anuncios[pista.id]
         self.anuncios.pop(anuncio["otro"], None)
-        for e in reversed(self.eventos):            # no repetir un choque ya reportado
-            if tiempo - e.tiempo_s > config.ENFRIAMIENTO_S:
-                break
-            if e.tipo == "colision" and pista.id in e.ids:
-                return None
+        if self._choque_reciente((pista,), tiempo):     # no repetir un choque ya reportado
+            return None
         participantes = (pista, otro) if otro is not None else (pista,)
         quienes = " y ".join(nombre(p) for p in participantes)
         descripcion = (
@@ -581,11 +570,8 @@ class AnalizadorEventos:
 
         pista.impacto_reportado = True
         # Si el choque ya se reportó por la regla de dos objetos, no se repite
-        for e in reversed(self.eventos):
-            if tiempo - e.tiempo_s > config.ENFRIAMIENTO_S:
-                break
-            if e.tipo == "colision" and pista.id in e.ids:
-                return None
+        if self._choque_reciente((pista,), tiempo):
+            return None
         # Si estaba en contacto con otro objeto seguido, el choque fue con él
         for (id_a, id_b), estado in self.contactos.items():
             if pista.id in (id_a, id_b) and not estado["reportado"]:
@@ -730,6 +716,11 @@ class AnalizadorEventos:
         return self._emitir("caida", "ALTO", frame, tiempo, involucrados, descripcion)
 
     # ------------------------------------------------------------- utilidades
+    def _choque_reciente(self, pistas, tiempo):
+        """¿Alguno de estos objetos participó en una colisión reportada hace poco?"""
+        return any(tiempo - self.ultima_colision.get(p.id, -1e9) <= config.ENFRIAMIENTO_S
+                   for p in pistas)
+
     def _emitir(self, tipo, nivel, frame, tiempo, pistas, descripcion):
         """Crea el evento, salvo que la misma alerta se haya dado hace muy poco."""
         ids = tuple(p.id for p in pistas)
@@ -737,6 +728,15 @@ class AnalizadorEventos:
         anterior = self.ultima_alerta.get(clave)
         if anterior is not None and tiempo - anterior < config.ENFRIAMIENTO_S:
             return None
+        if tipo == "colision":
+            # Un mismo choque se reporta una sola vez. Al golpearse, un vehículo
+            # puede quedar en contacto con dos manchas a la vez (el otro vehículo
+            # y un pedazo suyo que el seguimiento tomó por un objeto nuevo), y
+            # las dos parejas cumplen la regla en el mismo fotograma.
+            if self._choque_reciente(pistas, tiempo):
+                return None
+            for p in pistas:
+                self.ultima_colision[p.id] = tiempo
         self.ultima_alerta[clave] = tiempo
         if tipo == "riesgo":
             for p in pistas:

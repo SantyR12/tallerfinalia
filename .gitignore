@@ -41,6 +41,8 @@ env/
 .idea/
 .DS_Store
 Thumbs.db
+# Archivos temporales de Word
+~$*
 
 # Temporales y registros
 *.log
