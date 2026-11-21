@@ -32,7 +32,7 @@ python3 -m venv .venv
 source .venv/bin/activate            # en Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-# 3. Comprobar la instalación: debe terminar con "55 passed"
+# 3. Comprobar la instalación: debe terminar con "58 passed"
 python -m pytest tests -q
 
 # 4. Entrenar las redes (los modelos no vienen en el repositorio)
@@ -240,7 +240,9 @@ git clone --depth 1 https://github.com/ashin-coder/vehicle-crash-detector ../vid
 python evaluar.py --carpeta ../videos_choques/test_videos
 ```
 
-Al final imprime cuántos choques detectó, las alertas de colisión falsas, la precisión y el recall. En `test (12).mp4` y `test (4).mp4` el sistema sigue a los dos vehículos, avisa del riesgo y después reporta la colisión; sirven para la demostración:
+Al final imprime cuántos choques detectó, las alertas de colisión falsas, la precisión y el recall. El resultado puede variar un poco de un computador a otro: cada instalación decodifica el video con diferencias mínimas en los píxeles, y eso basta para que el seguimiento pierda a un vehículo un instante antes o después. Por eso, cuando ya hubo una alerta de riesgo, la colisión se confirma aunque uno de los dos vehículos se haya perdido de vista (ver "Riesgo cumplido" en `docs/como_funciona.md`).
+
+En `test (12).mp4` y `test (4).mp4` el sistema sigue a los dos vehículos, avisa del riesgo y después reporta la colisión; sirven para la demostración:
 
 ```bash
 python main.py --video "../videos_choques/test_videos/test (12).mp4" --asistente

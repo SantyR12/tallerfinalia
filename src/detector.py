@@ -48,15 +48,23 @@ class Detector:
             clasificador = ClasificadorCNN()
         self.clasificador = clasificador
         self.votos = {}             # id -> Counter de clases
+        self.fps = fps
+        self.frame = 0
+        self.protegidas = []        # cajas donde el fondo no se actualiza
+        self.ultimo_movimiento = {} # id -> (posición, fotograma) de la última vez que se movió
 
     def reiniciar(self, fps=30.0):
         """Se llama al empezar un video nuevo."""
         self.movimiento = DetectorMovimiento(fps=fps)
         self.seguidor = SeguidorObjetos(fps=fps)
         self.votos = {}
+        self.fps = fps
+        self.frame = 0
+        self.protegidas = []
+        self.ultimo_movimiento = {}
 
     def detectar(self, frame):
-        cajas = self.movimiento.detectar(frame)
+        cajas = self.movimiento.detectar(frame, proteger=self.protegidas)
         seguidos = self.seguidor.actualizar(cajas)
 
         # Se clasifican solo los objetos que se ven solos y completos: una
@@ -92,4 +100,37 @@ class Detector:
                 confianza=cuenta / sum(votos.values()),
                 estimada=s.estimada, oculta_en=s.oculta_en, en_borde=s.id in en_borde,
             ))
+        self.protegidas = self._cajas_protegidas(detecciones)
         return detecciones
+
+    def _cajas_protegidas(self, detecciones):
+        """
+        Opción apagada por defecto (PROTECCION_S = 0). Si se enciende, los
+        vehículos reconocidos y visibles quedan protegidos: el fondo no se
+        actualiza dentro de sus cajas en el fotograma siguiente, de modo que
+        el carro que espera en un cruce no se vuelva fondo antes de recibir
+        el golpe. La protección dura PROTECCION_S desde la última vez que el
+        vehículo se movió, para que un error del detector no se quede en
+        pantalla para siempre.
+
+        Sirve en cruces con poco tráfico. En un trancón hace daño: toda la fila
+        detenida sigue a la vista y cada carro que frena detrás del último se
+        confunde con un choque por alcance. Por eso viene apagada.
+        """
+        self.frame += 1
+        if config.PROTECCION_S <= 0:
+            return []
+        cajas = []
+        for d in detecciones:
+            if d.estimada or d.clase not in config.VEHICULOS_MOTOR:
+                continue
+            x1, y1, x2, y2 = d.caja
+            centro = ((x1 + x2) / 2, (y1 + y2) / 2)
+            tam = max(x2 - x1, y2 - y1)
+            referencia, desde = self.ultimo_movimiento.get(d.id, (centro, self.frame))
+            if abs(centro[0] - referencia[0]) + abs(centro[1] - referencia[1]) > 0.25 * tam:
+                referencia, desde = centro, self.frame          # se movió
+            self.ultimo_movimiento[d.id] = (referencia, desde)
+            if self.frame - desde <= config.PROTECCION_S * self.fps:
+                cajas.append(d.caja)
+        return cajas

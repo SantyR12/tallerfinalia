@@ -54,8 +54,14 @@ class DetectorMovimiento:
         ganancia = min(max(float(np.median(antes / ahora)), 0.8), 1.25)
         return cv2.convertScaleAbs(imagen, alpha=ganancia)
 
-    def detectar(self, frame):
-        """Devuelve la lista de cajas (x1, y1, x2, y2) de las zonas en movimiento."""
+    def detectar(self, frame, proteger=()):
+        """
+        Devuelve la lista de cajas (x1, y1, x2, y2) de las zonas en movimiento.
+
+        proteger: cajas dentro de las cuales no se actualiza el fondo. Solo se
+        usa con la opción PROTECCION_S de config.py, que viene apagada; sin
+        cajas, el fondo se compara y se actualiza en un solo paso.
+        """
         # El movimiento se busca siempre en una imagen del mismo ancho. Así los
         # filtros (que se miden en píxeles) actúan igual en un video pequeño
         # que en uno de alta resolución, y el proceso es más rápido.
@@ -72,7 +78,19 @@ class DetectorMovimiento:
             self.sustractor.apply(suave, learningRate=-1)
             return []
         suave = self._igualar_brillo(suave)
-        mascara = self.sustractor.apply(suave, learningRate=self.tasa)
+        if not proteger:
+            mascara = self.sustractor.apply(suave, learningRate=self.tasa)
+        else:
+            # Comparar con el fondo sin aprender, y después aprender con el
+            # fotograma en el que las zonas protegidas muestran el fondo conocido
+            mascara = self.sustractor.apply(suave, learningRate=0)
+            fondo = self.sustractor.getBackgroundImage()
+            para_aprender = suave.copy()
+            for x1, y1, x2, y2 in proteger:
+                x1, y1 = max(int(x1 * escala), 0), max(int(y1 * escala), 0)
+                x2, y2 = int(x2 * escala) + 1, int(y2 * escala) + 1
+                para_aprender[y1:y2, x1:x2] = fondo[y1:y2, x1:x2]
+            self.sustractor.apply(para_aprender, learningRate=self.tasa)
 
         # 255 = movimiento, 127 = sombra, 0 = fondo. Se descartan las sombras.
         _, mascara = cv2.threshold(mascara, 200, 255, cv2.THRESH_BINARY)

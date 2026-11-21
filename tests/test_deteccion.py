@@ -11,6 +11,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import config  # noqa: E402
 from src.detector import Detector  # noqa: E402
 from src.eventos import AnalizadorEventos  # noqa: E402
 from src.seguimiento import SeguidorObjetos, iou  # noqa: E402
@@ -122,6 +123,20 @@ def test_carro_que_frena_antes_del_peaton_es_riesgo_sin_colision():
     analizador, _ = analizar(escena, 120)
     assert "riesgo" in tipos(analizador)
     assert "colision" not in tipos(analizador)
+
+
+def test_con_la_proteccion_un_carro_detenido_no_se_vuelve_fondo(monkeypatch):
+    """
+    Con la opción PROTECCION_S encendida, un vehículo reconocido que se detiene
+    sigue a la vista más tiempo que SEGUNDOS_HASTA_FONDO.
+    """
+    monkeypatch.setattr(config, "PROTECCION_S", 10)
+    def escena(f):
+        return [(min(60 + 5 * f, 300), 250, 90, 50, AZUL)]      # se detiene en x = 300
+
+    quieto = int((config.SEGUNDOS_HASTA_FONDO + 3) * FPS)        # 3 s más de lo que tardaría
+    _, vistos = analizar(escena, 48 + quieto)
+    assert len(vistos[-1]) == 1 and not vistos[-1][0].estimada
 
 
 # ----------------------------------------------------- cambios de toda la imagen

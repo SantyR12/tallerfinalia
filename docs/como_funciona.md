@@ -30,6 +30,8 @@ Archivo `src/movimiento.py`. No es aprendizaje automático: es procesamiento cl�
 
 **Cuánto tarda algo en volverse fondo.** La tasa de aprendizaje se fija para que un objeto que se detiene tarde unos 5 segundos en pasar a ser parte del fondo (`SEGUNDOS_HASTA_FONDO`). Ese tiempo alcanza para ver dos vehículos que chocaron y quedaron quietos, y no es tan largo como para que un error del fondo dure medio video. `PROPORCION_FONDO` = 0,7 hace que el aspecto viejo de la escena se olvide poco después de aprender el nuevo.
 
+**Vehículos que se detienen (opción apagada).** Un carro que espera en un cruce se vuelve fondo a los 5 segundos y puede desaparecer antes de recibir el golpe. Para ese caso existe `PROTECCION_S` en `config.py`: con el valor 10, el fondo deja de actualizarse dentro de las cajas de los vehículos ya reconocidos durante 10 segundos desde su último movimiento. Viene en 0 (apagada) porque en un trancón hace daño: toda la fila detenida sigue a la vista y cada carro que frena detrás del último se confunde con un choque por alcance. En las pruebas, encendida subió de 5 a 19 las alertas en un video de trancón sin ningún accidente.
+
 **Primer segundo.** Al empezar, el fondo se aprende rápido durante un segundo y en ese tramo no se entregan detecciones.
 
 **Cambios de toda la imagen.** Si más del 40 % de la imagen aparece "en movimiento" durante medio segundo, no son objetos: la cámara se movió o cambió la luz. El fondo se descarta y se aprende de nuevo.
@@ -102,6 +104,12 @@ Las reglas no se aplican a un objeto cuya caja toca el borde de la imagen. Un ob
    - se separan y al menos uno **frenó de golpe, cambió de dirección o salió impulsado**.
 
 En un simple cruce las manchas también se funden, pero la mancha conjunta sigue cambiando de tamaño mientras uno pasa junto al otro, y al separarse cada uno conserva su velocidad: no hay alerta. Tampoco la hay cuando una moto alcanza a un carro lento y se funde con él: la mancha conjunta va más despacio que la moto, pero sigue avanzando.
+
+### Riesgo cumplido (`_revisar_riesgo_cumplido`)
+
+En los videos reales el seguimiento suele perder al vehículo que viene rápido justo antes del golpe: su mancha se funde con la del otro sin que se registre el contacto entre dos objetos con historial. Por eso, cuando el sistema ya dio una alerta de riesgo, queda pendiente de sus dos participantes. Hay colisión si la mancha de uno de ellos crece de golpe (algo se le fundió), sigue crecida al menos 1,2 segundos, el otro no está a la vista entero y separado, y esa mancha ya no se mueve como venía cuando se dio el aviso. Si el otro pasa de largo, las manchas se separan antes y no hay alerta.
+
+La misma idea se aplica cuando los dos sí se ven fundidos: con una alerta de riesgo previa basta que sigan juntos 1,2 segundos y que la mancha haya cambiado su movimiento. Una moto que alcanza a un carro y sigue a su lado no cambia el movimiento del carro, y no cuenta.
 
 ### Frenada imposible (`_revisar_impacto`)
 

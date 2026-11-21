@@ -261,6 +261,39 @@ def test_moto_que_alcanza_a_un_carro_lento_no_es_colision():
     assert "colision" not in tipos(simular(escena, 100))
 
 
+def test_choque_anunciado_aunque_se_pierda_a_uno_de_los_dos():
+    """
+    Lo que pasa en un video real: se avisa del riesgo, el seguimiento pierde al
+    carro que venía rápido justo antes del golpe, y la mancha del carro que
+    estaba quieto crece de pronto y empieza a moverse.
+    """
+    def escena(f):
+        if f < 28:                                  # el 2 se acerca al 1, que está quieto
+            return [Det(1, "vehiculo", caja(400, 300, 100, 60)),
+                    Det(2, "vehiculo", caja(60 + 6 * f, 300, 100, 60))]
+        if f < 40:                                  # al 2 se le pierde la pista
+            return [Det(1, "vehiculo", caja(400, 300, 100, 60))]
+        x = 350 + 3 * (f - 40)                      # una sola mancha grande, que avanza
+        return [Det(1, "vehiculo", caja(x, 300, 200, 60))]
+
+    analizador = simular(escena, 100)
+    assert tipos(analizador) == ["riesgo", "colision"]
+    colision = analizador.eventos[1]
+    assert set(colision.ids) == {1, 2} and "anunciado" in colision.descripcion
+
+
+def test_riesgo_que_no_se_cumple_no_es_colision():
+    """Se avisa del riesgo, pero el otro pasa de largo y cada uno sigue como venía."""
+    def escena(f):
+        x2 = 60 + 6 * f
+        dets = [Det(1, "vehiculo", caja(400, 300, 100, 60))]
+        if not 28 <= f < 40:                        # se pierde un momento y reaparece
+            dets.append(Det(2, "vehiculo", caja(x2, 300 if f < 28 else 380, 100, 60)))
+        return dets
+
+    assert "colision" not in tipos(simular(escena, 100))
+
+
 # --------------------------------------------------------------------- caída
 def test_caida_de_peaton():
     """La caja pasa de 40x100 (de pie) a 100x40 (en el suelo) en 10 fotogramas."""

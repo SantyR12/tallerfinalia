@@ -38,6 +38,9 @@ SEGUNDOS_HASTA_FONDO = 5        # un objeto que se detiene sigue visible este ti
                                 # pasar a ser parte del fondo (alcanza para ver un choque)
 PROPORCION_FONDO = 0.7          # peso que debe reunir un aspecto de la escena para ser "el fondo";
                                 # con valores altos los fondos viejos tardan mucho en olvidarse
+PROTECCION_S = 0                # opción apagada (0). Con 10, un vehículo reconocido que se
+                                # detiene no pasa a ser fondo durante 10 s: ayuda en cruces
+                                # con poco tráfico y produce falsas alarmas en un trancón
 SEGUNDOS_APRENDIZAJE = 1.0      # al empezar, el fondo se aprende rápido durante este tiempo
 CAMBIO_GLOBAL = 0.40            # si más de esta fracción de la imagen "se mueve"...
 SEGUNDOS_CAMBIO_GLOBAL = 0.5    # ...durante este tiempo, la cámara se movió o cambió la luz:
@@ -80,6 +83,8 @@ VENTANA_CONFIRMACION_S = 1.50   # tiempo máximo, desde el contacto, para ver el
 FRENADO_MINIMO = 0.50           # caída de velocidad: 0.5 = pierde la mitad
 GIRO_MINIMO_GRADOS = 45.0       # o cambio brusco de dirección
 VARIACION_ESTABLE = 0.20        # dos objetos fundidos "quedaron quietos" si su caja casi no cambia
+RIESGO_MEMORIA_S = 2.5          # una alerta de riesgo "respalda" un contacto durante este tiempo
+FUSION_SOSTENIDA_S = 1.2        # tras una alerta de riesgo, manchas fundidas este tiempo = choque
 IMPACTO_V_MINIMA = 1.50         # frenada imposible: venía al menos a esta velocidad (tamaños/s)...
 IMPACTO_ESPERA_S = 0.40         # ...y este tiempo después está casi quieto
 

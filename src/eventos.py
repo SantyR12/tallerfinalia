@@ -201,6 +201,8 @@ class AnalizadorEventos:
         self.k = max(2, round(config.VENTANA_VELOCIDAD_S * self.fps))
         self.pistas = {}            # id -> Pista (objetos visibles hace poco)
         self.contactos = {}         # (id_a, id_b) -> datos del contacto en curso
+        self.riesgo_reciente = {}   # id -> momento de su última alerta de riesgo
+        self.anuncios = {}          # id -> cómo estaba el objeto cuando se avisó del riesgo
         self.ultima_alerta = {}     # (tipo, ids) -> tiempo de la última alerta
         self.registro = {}          # id -> (clase, observaciones), para el resumen
         self.eventos = []           # todos los eventos detectados
@@ -273,7 +275,14 @@ class AnalizadorEventos:
                 if evento:
                     nuevos.append(evento)
 
-        # 5. Revisar caídas de personas
+        # 5. Revisar si un choque anunciado ocurrió aunque se haya perdido a uno de los dos
+        for p in visibles:
+            evento = self._revisar_riesgo_cumplido(p, visibles, frame, tiempo)
+            ya_reportado = any(e.tipo == "colision" and p.id in e.ids for e in nuevos)
+            if evento and not ya_reportado:
+                nuevos.append(evento)
+
+        # 6. Revisar caídas de personas
         for p in visibles:
             if p.clase == "persona" and not p.estimada:
                 evento = self._revisar_caida(p, visibles, frame, tiempo)
@@ -377,6 +386,10 @@ class AnalizadorEventos:
                     a.id: (a.rapidez(self.k, self.fps, saltar), a.velocidad(self.k, saltar)),
                     b.id: (b.rapidez(self.k, self.fps, saltar), b.velocidad(self.k, saltar)),
                 },
+                "con_historial": {          # ¿se venía siguiendo desde antes del contacto?
+                    a.id: a.observaciones > self.k + saltar,
+                    b.id: b.observaciones > self.k + saltar,
+                },
                 "fundidos": fundidos,
                 "cambio": frame,            # último fotograma en que se fundieron o separaron
                 "reportado": False,
@@ -392,9 +405,14 @@ class AnalizadorEventos:
         if transcurrido > config.VENTANA_CONFIRMACION_S and not en_contacto:
             del self.contactos[clave]       # se separaron y no pasó nada: se olvida
             return None
+        # ¿El sistema ya había avisado del riesgo para alguno de los dos? Entonces
+        # el acercamiento quedó comprobado en ese momento, aunque después el
+        # seguimiento haya perdido a uno de ellos y le haya dado otro número.
+        anunciado = any(tiempo - self.riesgo_reciente.get(i, -1e9) <= config.RIESGO_MEMORIA_S
+                        for i in (a.id, b.id))
         if (
             estado["reportado"]
-            or estado["cierre"] < config.V_CIERRE_MINIMA    # no venían acercándose
+            or (estado["cierre"] < config.V_CIERRE_MINIMA and not anunciado)   # no venían acercándose
             or estado["frames"] < 2                         # un roce de un solo fotograma
             or transcurrido < config.CONFIRMACION_S
             or transcurrido > config.VENTANA_CONFIRMACION_S
@@ -405,6 +423,18 @@ class AnalizadorEventos:
         if fundidos:
             contenedor = a if b.oculta_en == a.id else b
             motivo = self._fundidos_tras_choque(contenedor, estado, frame)
+            # Riesgo cumplido: se avisó del choque inminente, las manchas se
+            # fundieron, siguen fundidas (dos objetos que solo se cruzan se
+            # separan antes) y la mancha ya no se mueve como venía. Una moto que
+            # alcanza a un carro y sigue a su lado no cambia el movimiento del carro.
+            if (motivo is None and anunciado and transcurrido >= config.FUSION_SOSTENIDA_S
+                    and estado["frames"] >= 0.8 * transcurrido * self.fps):
+                otro = b if contenedor is a else a
+                referencia = contenedor if estado["con_historial"][contenedor.id] else otro
+                antes = estado["previo"][referencia.id][0]
+                ahora = contenedor.rapidez(round(0.5 * self.fps), self.fps)
+                if abs(ahora - antes) >= max(config.V_MOVIMIENTO, 0.4 * antes):
+                    motivo = "siguen juntos tras el contacto anunciado y cambiaron su movimiento"
         elif frame - estado["cambio"] > self.k:     # cajas ya estables tras separarse
             for pista in (a, b):
                 motivo = self._cambio_brusco(pista, *estado["previo"][pista.id])
@@ -463,6 +493,60 @@ class AnalizadorEventos:
                 and rapidez_ahora <= (1 - config.FRENADO_MINIMO) * rapidez_antes):
             return "quedaron detenidos tras el contacto"
         return None
+
+    def _revisar_riesgo_cumplido(self, pista, visibles, frame, tiempo):
+        """
+        El sistema avisó de un choque inminente entre dos objetos y después el
+        seguimiento perdió a uno (algo habitual: el que venía rápido se funde
+        con el otro sin que se alcance a registrar el contacto). Si la mancha
+        del que quedó crece de golpe, sigue así un buen rato y ya no se mueve
+        como venía, el choque ocurrió.
+        """
+        anuncio = self.anuncios.get(pista.id)
+        if anuncio is None:
+            return None
+        if tiempo - anuncio["tiempo"] > config.RIESGO_MEMORIA_S + config.FUSION_SOSTENIDA_S:
+            del self.anuncios[pista.id]             # pasó el tiempo y no ocurrió nada
+            return None
+        if pista.estimada or pista.en_borde:
+            return None
+        # Si el otro sigue a la vista, entero y separado, no se fundieron
+        otro = self.pistas.get(anuncio["otro"])
+        if (otro is not None and otro in visibles and not otro.estimada
+                and solape(pista.caja, otro.caja) == 0):
+            anuncio["fusion"] = None
+            return None
+        # ¿La mancha creció (algo se le fundió) y sigue crecida?
+        if pista.tam ** 2 < config.SALTO_DE_AREA * anuncio["area"]:
+            anuncio["fusion"] = None
+            return None
+        if anuncio["fusion"] is None:
+            anuncio["fusion"] = frame
+        if frame - anuncio["fusion"] < config.FUSION_SOSTENIDA_S * self.fps:
+            return None
+        # ¿Cambió su movimiento respecto a como venía cuando se dio el aviso?
+        antes = anuncio["rapidez"]
+        ahora = pista.rapidez(round(0.5 * self.fps), self.fps)
+        if abs(ahora - antes) < max(config.V_MOVIMIENTO, 0.4 * antes):
+            return None
+
+        del self.anuncios[pista.id]
+        self.anuncios.pop(anuncio["otro"], None)
+        for e in reversed(self.eventos):            # no repetir un choque ya reportado
+            if tiempo - e.tiempo_s > config.ENFRIAMIENTO_S:
+                break
+            if e.tipo == "colision" and pista.id in e.ids:
+                return None
+        participantes = (pista, otro) if otro is not None else (pista,)
+        quienes = " y ".join(nombre(p) for p in participantes)
+        descripcion = (
+            f"Posible colisión entre {quienes} en el segundo {tiempo:.1f} "
+            f"(ocurrió el contacto que se había anunciado)"
+        ) if otro is not None else (
+            f"Posible colisión de {quienes} en el segundo {tiempo:.1f} "
+            f"(ocurrió el contacto que se había anunciado)"
+        )
+        return self._emitir("colision", "ALTO", frame, tiempo, participantes, descripcion)
 
     def _revisar_impacto(self, pista, frame, tiempo):
         """
@@ -570,7 +654,16 @@ class AnalizadorEventos:
             f"Riesgo de colisión entre {nombre(a)} y {nombre(b)} "
             f"en el segundo {tiempo:.1f} (contacto estimado en {ttc:.1f} s)"
         )
-        return self._emitir("riesgo", "MEDIO", frame, tiempo, (a, b), descripcion)
+        evento = self._emitir("riesgo", "MEDIO", frame, tiempo, (a, b), descripcion)
+        if evento:
+            # Se anota cómo estaba cada uno, para comprobar después si el
+            # choque anunciado ocurrió (ver _revisar_riesgo_cumplido)
+            for pista, otro in ((a, b), (b, a)):
+                self.anuncios[pista.id] = {
+                    "tiempo": tiempo, "otro": otro.id, "area": pista.tam ** 2,
+                    "rapidez": pista.rapidez(self.k, self.fps), "fusion": None,
+                }
+        return evento
 
     def _revisar_caida(self, persona, visibles, frame, tiempo):
         """Caída = la caja de la persona pasa de vertical a horizontal rápidamente."""
@@ -645,6 +738,9 @@ class AnalizadorEventos:
         if anterior is not None and tiempo - anterior < config.ENFRIAMIENTO_S:
             return None
         self.ultima_alerta[clave] = tiempo
+        if tipo == "riesgo":
+            for p in pistas:
+                self.riesgo_reciente[p.id] = tiempo
         return Evento(
             tipo=tipo,
             nivel=nivel,
