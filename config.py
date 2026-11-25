@@ -38,9 +38,6 @@ SEGUNDOS_HASTA_FONDO = 5        # un objeto que se detiene sigue visible este ti
                                 # pasar a ser parte del fondo (alcanza para ver un choque)
 PROPORCION_FONDO = 0.7          # peso que debe reunir un aspecto de la escena para ser "el fondo";
                                 # con valores altos los fondos viejos tardan mucho en olvidarse
-PROTECCION_S = 0                # opción apagada (0). Con 10, un vehículo reconocido que se
-                                # detiene no pasa a ser fondo durante 10 s: ayuda en cruces
-                                # con poco tráfico y produce falsas alarmas en un trancón
 SEGUNDOS_APRENDIZAJE = 1.0      # al empezar, el fondo se aprende rápido durante este tiempo
 CAMBIO_GLOBAL = 0.40            # si más de esta fracción de la imagen "se mueve"...
 SEGUNDOS_CAMBIO_GLOBAL = 0.5    # ...durante este tiempo, la cámara se movió o cambió la luz:
@@ -111,6 +108,18 @@ ALTURA_MINIMA_PERSONA = 40      # píxeles; personas más pequeñas son poco fia
 ENFRIAMIENTO_S = 3.0            # no repetir la misma alerta antes de este tiempo
 DURACION_ALERTA_S = 2.0         # tiempo que la alerta queda visible en pantalla
 CARPETA_SALIDAS = "salidas"
+
+# ----------------------------------------------------------------------------
+# Videos de demostración
+# ----------------------------------------------------------------------------
+# Aparecen en la lista de la aplicación web (solo los que existan en la carpeta
+# data/). Cada uno indica su archivo y cuántos fotogramas analizar (0 = todo).
+# Los videos no se suben al repositorio: se copian a mano en data/.
+VIDEOS_DEMO = {
+    "Choque en una intersección": ("data/demo_choque_interseccion.mp4", 0),
+    "Choque en una avenida": ("data/demo_choque_avenida.mp4", 0),
+    "Tráfico normal (sin accidentes)": ("data/demo_trafico_normal.mp4", 240),
+}
 
 # ----------------------------------------------------------------------------
 # Clasificador de intenciones (Transformer codificador propio, desde cero)

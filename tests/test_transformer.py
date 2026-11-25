@@ -19,13 +19,15 @@ np = pytest.importorskip("numpy")
 
 from entrenamiento.generar_preguntas import generar  # noqa: E402
 from src.asistente import Asistente  # noqa: E402
-from src.transformer import codificar, construir_transformer, normalizar  # noqa: E402
+from src.texto import codificar, normalizar  # noqa: E402
+from src.transformer import construir_transformer  # noqa: E402
 from tests.test_asistente import EVENTOS, RESUMEN  # noqa: E402
 
 LARGO = 16
 
 
 def test_normalizar_y_codificar():
+    """El texto se pasa a minúsculas sin tildes y después a números (1 = desconocida, 0 = relleno)."""
     assert normalizar("¿Cuántas COLISIONES hubo?") == "cuantas colisiones hubo"
     vocabulario = {"cuantas": 2, "colisiones": 3}
     indices = codificar("¿Cuántas colisiones hubo?", vocabulario, 6)
@@ -33,6 +35,7 @@ def test_normalizar_y_codificar():
 
 
 def test_el_dataset_de_preguntas_cubre_todas_las_intenciones():
+    """El generador de preguntas produce ejemplos de las 17 intenciones."""
     filas = generar()
     intenciones = {intencion for _, intencion in filas}
     assert len(intenciones) == 17
@@ -65,10 +68,12 @@ def modelo_entrenado(tmp_path_factory):
 
 
 def test_el_transformer_aprende(modelo_entrenado):
+    """Tras unos segundos de entrenamiento acierta más del 95 % de las preguntas de prueba."""
     assert modelo_entrenado[2] > 0.95
 
 
 def test_guardar_y_cargar_da_las_mismas_predicciones(modelo_entrenado):
+    """El modelo guardado en disco y vuelto a cargar predice lo mismo que el original."""
     ruta_modelo, _, _, modelo, x = modelo_entrenado
     cargado = keras.models.load_model(ruta_modelo)
     antes = np.asarray(modelo(x[:20], training=False))
@@ -88,6 +93,7 @@ def test_el_relleno_no_cambia_la_prediccion(modelo_entrenado):
 
 
 def test_el_asistente_responde_con_el_transformer(modelo_entrenado):
+    """El asistente usa el clasificador entrenado para saber qué se pregunta."""
     ruta_modelo, ruta_vocabulario, *_ = modelo_entrenado
     asistente = Asistente(RESUMEN, EVENTOS, ruta_modelo=ruta_modelo,
                           ruta_vocabulario=ruta_vocabulario, usar_llm=False)

@@ -46,10 +46,12 @@ EXTENSIONES = {".jpg", ".jpeg", ".png", ".bmp"}
 
 
 def nombre_normal(carpeta):
+    """'Pickup Truck' -> 'pickup_truck', para buscarlo en EQUIVALENCIAS."""
     return carpeta.lower().strip().replace(" ", "_").replace("-", "_")
 
 
 def main():
+    """Recorre las carpetas del dataset y escribe el CSV."""
     parser = argparse.ArgumentParser(description="Crea el CSV del dataset de objetos")
     parser.add_argument("--origen", required=True, help="carpeta con una subcarpeta por clase")
     parser.add_argument("--por-clase", type=int, default=4000, help="máximo de imágenes por clase")
@@ -68,7 +70,8 @@ def main():
             "Terminal para que escriba la ruta exacta."
         )
 
-    por_clase = {}
+    # 1. Reunir las rutas de las imágenes de cada clase del proyecto
+    por_clase = {}              # clase -> lista de rutas
     ignoradas = []
     for carpeta in sorted(origen.iterdir()):
         if not carpeta.is_dir():
@@ -95,9 +98,10 @@ def main():
             "otros nombres, agrégalos al diccionario EQUIVALENCIAS de este archivo."
         )
 
+    # 2. Repartir cada clase: 70 % entrenamiento, 15 % validación, 15 % prueba
     filas = []
     for clase, imagenes in sorted(por_clase.items()):
-        random.shuffle(imagenes)
+        random.shuffle(imagenes)                # al azar, para que el reparto no dependa del orden
         imagenes = imagenes[:args.por_clase]
         n1, n2 = int(0.70 * len(imagenes)), int(0.85 * len(imagenes))
         for i, ruta in enumerate(imagenes):
@@ -105,6 +109,7 @@ def main():
             filas.append((ruta, clase, conjunto))
     random.shuffle(filas)
 
+    # 3. Escribir el CSV y mostrar cuántas imágenes quedaron en cada conjunto
     os.makedirs(os.path.dirname(args.salida) or ".", exist_ok=True)
     with open(args.salida, "w", newline="", encoding="utf-8") as archivo:
         escritor = csv.writer(archivo)

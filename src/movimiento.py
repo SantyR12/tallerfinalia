@@ -16,6 +16,8 @@ import config
 
 
 class DetectorMovimiento:
+    """Encuentra las zonas del fotograma que no son parte del fondo."""
+
     def __init__(self, fps=30.0):
         self.fps = fps
         # MOG2 incorpora al fondo lo que permanece quieto. Un objeto nuevo pasa
@@ -23,6 +25,8 @@ class DetectorMovimiento:
         # crece `tasa` por fotograma; de ahí sale la tasa para que tarde
         # SEGUNDOS_HASTA_FONDO.
         self.tasa = (1 - config.PROPORCION_FONDO) / (config.SEGUNDOS_HASTA_FONDO * fps)
+        # "Núcleos" para limpiar la máscara: figuras pequeñas con las que se
+        # borran puntos sueltos (el pequeño) y se rellenan huecos (el grande)
         self.nucleo_pequeno = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
         self.nucleo_grande = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11))
         self._reiniciar_fondo()
@@ -54,14 +58,8 @@ class DetectorMovimiento:
         ganancia = min(max(float(np.median(antes / ahora)), 0.8), 1.25)
         return cv2.convertScaleAbs(imagen, alpha=ganancia)
 
-    def detectar(self, frame, proteger=()):
-        """
-        Devuelve la lista de cajas (x1, y1, x2, y2) de las zonas en movimiento.
-
-        proteger: cajas dentro de las cuales no se actualiza el fondo. Solo se
-        usa con la opción PROTECCION_S de config.py, que viene apagada; sin
-        cajas, el fondo se compara y se actualiza en un solo paso.
-        """
+    def detectar(self, frame):
+        """Devuelve la lista de cajas (x1, y1, x2, y2) de las zonas en movimiento."""
         # El movimiento se busca siempre en una imagen del mismo ancho. Así los
         # filtros (que se miden en píxeles) actúan igual en un video pequeño
         # que en uno de alta resolución, y el proceso es más rápido.
@@ -78,19 +76,9 @@ class DetectorMovimiento:
             self.sustractor.apply(suave, learningRate=-1)
             return []
         suave = self._igualar_brillo(suave)
-        if not proteger:
-            mascara = self.sustractor.apply(suave, learningRate=self.tasa)
-        else:
-            # Comparar con el fondo sin aprender, y después aprender con el
-            # fotograma en el que las zonas protegidas muestran el fondo conocido
-            mascara = self.sustractor.apply(suave, learningRate=0)
-            fondo = self.sustractor.getBackgroundImage()
-            para_aprender = suave.copy()
-            for x1, y1, x2, y2 in proteger:
-                x1, y1 = max(int(x1 * escala), 0), max(int(y1 * escala), 0)
-                x2, y2 = int(x2 * escala) + 1, int(y2 * escala) + 1
-                para_aprender[y1:y2, x1:x2] = fondo[y1:y2, x1:x2]
-            self.sustractor.apply(para_aprender, learningRate=self.tasa)
+        # apply() hace dos cosas a la vez: compara el fotograma con el fondo
+        # (devuelve la máscara de lo que cambió) y actualiza el fondo un poco.
+        mascara = self.sustractor.apply(suave, learningRate=self.tasa)
 
         # 255 = movimiento, 127 = sombra, 0 = fondo. Se descartan las sombras.
         _, mascara = cv2.threshold(mascara, 200, 255, cv2.THRESH_BINARY)

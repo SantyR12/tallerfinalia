@@ -25,6 +25,7 @@ INTENCIONES = ["contar_colisiones", "duracion"]
 
 # -------------------------------------------------- el idioma (sin redes)
 def test_contar_y_fichas_de_datos():
+    """Del registro salen las cantidades y de ellas las fichas cero / uno / varios que lee el modelo."""
     cuenta = contar(RESUMEN, EVENTOS)
     assert cuenta["colisiones"] == 1 and cuenta["caidas"] == 1 and cuenta["riesgos"] == 1
     assert cuenta["vehiculos"] == 4 and cuenta["peatones"] == 3 and cuenta["motos"] == 2
@@ -35,6 +36,7 @@ def test_contar_y_fichas_de_datos():
 
 
 def test_respuestas_validas_dependen_de_los_datos():
+    """Las respuestas correctas cambian según lo que pasó en el video (con o sin colisiones)."""
     cuenta = contar(RESUMEN, EVENTOS)
     assert all("<n_colisiones>" in r for r in respuestas_validas("contar_colisiones", cuenta))
     sin_nada = contar(SIN_NADA, [])
@@ -52,6 +54,7 @@ def test_respuestas_validas_dependen_de_los_datos():
 
 
 def test_rellenar_pone_los_datos_reales():
+    """Las ranuras (<n_colisiones>, <lista_objetos>...) se cambian por los datos del registro."""
     texto = rellenar("se detectó <n_colisiones> colisión : <lista_colisiones>", RESUMEN, EVENTOS)
     assert texto == ("Se detectó 1 colisión: Posible colisión entre vehículo 4 y motocicleta 7 "
                      "en el segundo 3.5.")
@@ -65,6 +68,7 @@ def test_rellenar_pone_los_datos_reales():
 # ------------------------------------------------------------- la red
 @pytest.fixture(scope="module")
 def modelo_entrenado(tmp_path_factory):
+    """Entrena una sola vez un modelo de lenguaje pequeño que comparten las pruebas de este archivo."""
     keras = pytest.importorskip("keras")
     np = pytest.importorskip("numpy")
     from entrenamiento.generar_preguntas import generar
@@ -108,6 +112,7 @@ def modelo_entrenado(tmp_path_factory):
 
 
 def test_el_modelo_escribe_respuestas_correctas(modelo_entrenado):
+    """El modelo entrenado escribe respuestas válidas para videos y preguntas nuevos."""
     generador = modelo_entrenado[0]
     rng = random.Random(77)
     correctas = 0
@@ -132,6 +137,7 @@ def test_la_mascara_causal_impide_ver_el_futuro(modelo_entrenado):
 
 
 def test_la_salida_es_una_distribucion_de_probabilidad(modelo_entrenado):
+    """En cada posición las probabilidades de la salida suman 1 (softmax)."""
     *_, modelo, x, np = modelo_entrenado
     salida = np.asarray(modelo(x[:2], training=False))
     assert salida.shape[:2] == x[:2].shape
@@ -139,6 +145,7 @@ def test_la_salida_es_una_distribucion_de_probabilidad(modelo_entrenado):
 
 
 def test_el_asistente_usa_el_modelo_de_lenguaje_con_control(modelo_entrenado, tmp_path):
+    """El asistente usa el modelo de lenguaje y acepta su respuesta solo si pasa el control de coherencia."""
     from src.asistente import Asistente
 
     _, ruta_modelo, ruta_vocabulario, *_ = modelo_entrenado

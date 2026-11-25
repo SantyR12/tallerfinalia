@@ -18,13 +18,17 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import config  # noqa: E402
 
+# Piezas con las que se arman las preguntas. Van sin tildes porque el texto
+# se normaliza (minúsculas, sin tildes ni signos) antes de llegar al modelo.
 CUANTOS = ["cuantos", "cuantas", "que cantidad de", "numero de", "dime cuantos", "cuantos fueron los",
            "total de", "cantidad de"]
 HUBO = ["hubo", "se detectaron", "se registraron", "ocurrieron", "pasaron", "se presentaron", "hay",
         "aparecen", "detecto el sistema"]
 CUANDO = ["cuando", "en que segundo", "en que momento", "a que hora", "en que instante", "en que minuto"]
+# Lo que puede ir al final de la pregunta ("" repetido = la mayoría no lleva nada)
 COLA = ["", "", "", "en el video", "en la grabacion", "por favor", "en total"]
 
+# Sinónimos de cada tipo de evento y de cada tipo de objeto
 TEMAS = {
     "colisiones": ["colisiones", "choques", "accidentes", "impactos", "colision", "choque", "accidente"],
     "caidas": ["caidas", "caida", "personas caidas", "motociclistas caidos", "gente que se cayo"],
@@ -41,6 +45,7 @@ OBJETOS = {
 # El sistema no separa carros, buses y camiones: estas preguntas tienen su propia respuesta
 TIPOS_DE_VEHICULO = ["buses", "autobuses", "busetas", "bus", "camiones", "camion",
                      "vehiculos de carga", "tractomulas", "volquetas"]
+# Intenciones que no se arman por piezas: se escriben sus frases completas
 FIJAS = {
     "resumen": ["resumen", "dame un resumen", "que paso", "que paso en el video", "que ocurrio",
                 "informe general", "cuentame que paso", "resume el video", "dame el informe",
@@ -71,6 +76,7 @@ FIJAS = {
                  "cuanto tiempo se analizo", "que tan largo es el video", "cuantos fotogramas tiene",
                  "duracion", "cuanto duro la grabacion", "tiempo total del video"],
 }
+# Lo que puede ir al principio de la pregunta
 ADORNOS = ["", "", "", "oye ", "hola ", "por favor ", "me puedes decir ", "quisiera saber ", "dime "]
 # Formas directas de preguntar si pasó algo, con verbos en vez de sustantivos
 DIRECTAS = {
@@ -88,7 +94,12 @@ DIRECTAS = {
 
 
 def generar():
-    filas = set()
+    """
+    Devuelve todas las parejas (pregunta, intención) posibles, sin repetir.
+    itertools.product arma todas las combinaciones de las piezas: por ejemplo
+    "cuantos" + "choques" + "hubo" + "en el video".
+    """
+    filas = set()               # un conjunto no guarda repetidos
     for tema, sinonimos in TEMAS.items():
         for cuantos, palabra, hubo, cola in itertools.product(CUANTOS, sinonimos, HUBO, COLA):
             filas.add((f"{cuantos} {palabra} {hubo} {cola}".strip(), f"contar_{tema}"))
@@ -112,6 +123,7 @@ def generar():
 
 
 def main(por_intencion=400, semilla=7):
+    """Escribe el CSV con un máximo de `por_intencion` preguntas de cada intención."""
     random.seed(semilla)
     por_clase = {}
     for pregunta, intencion in generar():

@@ -16,7 +16,7 @@ Proyecto final de Inteligencia Artificial (Proyecto 2). El sistema analiza un vi
 
 El seguimiento también es código propio.
 
-Integrantes: _[nombres del equipo]_
+Integrantes: Santiago Ramos, Paulo Tibanta, Nelson Barrera y Julian Dorado.
 
 ## Guía rápida
 
@@ -32,7 +32,7 @@ python3 -m venv .venv
 source .venv/bin/activate            # en Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-# 3. Comprobar la instalación: debe terminar con "59 passed"
+# 3. Comprobar la instalación: debe terminar con "58 passed"
 python -m pytest tests -q
 
 # 4. Entrenar las redes (los modelos no vienen en el repositorio)
@@ -47,7 +47,7 @@ python entrenamiento/entrenar_cnn.py            # CNN; requiere descargar el dat
 streamlit run app.py
 ```
 
-En el navegador: subir el video, pulsar **Analizar** y, al terminar, preguntar al asistente en el chat.
+En el navegador: elegir un video de demostración o subir uno, pulsar **Analizar** y, al terminar, preguntar al asistente en el chat.
 
 - **Los modelos entrenados no se incluyen en el repositorio** (están en `.gitignore`): el paso 4 es obligatorio la primera vez. Los dos del asistente tardan unos 6 minutos en total y no descargan nada; el de la CNN necesita el dataset de imágenes.
 - **Si falta alguna red**, el programa lo dice y muestra el comando para entrenarla.
@@ -149,6 +149,14 @@ Coloca los videos de prueba en `data/`. Deben ser de **cámara fija**.
 streamlit run app.py
 ```
 
+En la barra lateral se elige la fuente: un **video de demostración**, un video subido o la cámara web. Los videos de demostración son los que figuran en `VIDEOS_DEMO` (archivo `config.py`) y estén en la carpeta `data/`; como los videos no se suben al repositorio, hay que copiarlos allí con estos nombres:
+
+| Archivo en `data/` | Qué muestra |
+|---|---|
+| `demo_choque_interseccion.mp4` | Choque en una intersección: alerta de riesgo y después colisión |
+| `demo_choque_avenida.mp4` | Choque en una avenida: alerta de riesgo y después colisión |
+| `demo_trafico_normal.mp4` | Tráfico sin accidentes: conteo de vehículos, sin alertas |
+
 **Consola**
 
 ```bash
@@ -240,12 +248,14 @@ git clone --depth 1 https://github.com/ashin-coder/vehicle-crash-detector ../vid
 python evaluar.py --carpeta ../videos_choques/test_videos
 ```
 
-Al final imprime cuántos choques detectó, las alertas de colisión falsas, la precisión y el recall. El resultado puede variar un poco de un computador a otro: cada instalación decodifica el video con diferencias mínimas en los píxeles, y eso basta para que el seguimiento pierda a un vehículo un instante antes o después. Por eso, cuando ya hubo una alerta de riesgo, la colisión se confirma aunque uno de los dos vehículos se haya perdido de vista (ver "Riesgo cumplido" en `docs/como_funciona.md`).
+Al final imprime cuántos choques detectó, las alertas de colisión falsas, la precisión y el recall. El script solo compara el momento de la alerta, no qué vehículos chocaron, así que hay que confirmar cada colisión mirando su captura: con los 17 videos cuenta 3 detectados, pero en `test (17).mp4` la alerta es entre dos vehículos ajenos al accidente. El resultado verificado es de 2 choques detectados de 17 y 1 alerta falsa. El resultado puede variar un poco de un computador a otro: cada instalación decodifica el video con diferencias mínimas en los píxeles, y eso basta para que el seguimiento pierda a un vehículo un instante antes o después. Por eso, cuando ya hubo una alerta de riesgo, la colisión se confirma aunque uno de los dos vehículos se haya perdido de vista (ver "Riesgo cumplido" en `docs/como_funciona.md`).
 
-En `test (12).mp4` y `test (4).mp4` el sistema sigue a los dos vehículos, avisa del riesgo y después reporta la colisión; sirven para la demostración:
+En `test (4).mp4` y `test (12).mp4` el sistema sigue a los dos vehículos, avisa del riesgo y después reporta la colisión. Son los videos de la demostración: se copian a `data/` con los nombres `demo_choque_interseccion.mp4` y `demo_choque_avenida.mp4` (deben ser los archivos originales; un video reenviado por una aplicación de mensajería queda recomprimido y el resultado puede cambiar).
 
 ```bash
-python main.py --video "../videos_choques/test_videos/test (12).mp4" --asistente
+cp "../videos_choques/test_videos/test (4).mp4"  data/demo_choque_interseccion.mp4
+cp "../videos_choques/test_videos/test (12).mp4" data/demo_choque_avenida.mp4
+python main.py --video data/demo_choque_avenida.mp4 --asistente
 ```
 
 ## Ajuste

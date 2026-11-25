@@ -32,6 +32,7 @@ SIN_NADA = {"frames": 60, "duracion_s": 2.0, "fps": 30.0, "objetos": {"vehiculo"
 
 
 def test_informe_contiene_los_datos_clave():
+    """El informe en texto menciona la duración, los objetos y cada evento."""
     informe = construir_informe(RESUMEN, EVENTOS)
     assert "dura 10.0 segundos" in informe
     assert "9 objetos" in informe
@@ -43,12 +44,14 @@ def test_informe_contiene_los_datos_clave():
 
 
 def test_informe_sin_eventos():
+    """Si no hubo eventos, el informe lo dice de forma explícita."""
     informe = construir_informe(SIN_NADA, [])
     assert "No se registró ningún evento" in informe
     assert "2 vehículos" in informe
 
 
 def test_reglas_responden_conteos_y_momentos():
+    """Sin redes, el asistente responde cuántos eventos hubo y cuándo, por palabras clave."""
     asistente = Asistente(RESUMEN, EVENTOS, usar_transformer=False, usar_llm=False)
 
     r = asistente.responder("¿Cuántas colisiones hubo?")
@@ -79,12 +82,14 @@ def test_reglas_responden_conteos_y_momentos():
 
 
 def test_reglas_cuando_no_hubo_eventos():
+    """Con un video sin eventos, las respuestas dicen que no hubo nada."""
     asistente = Asistente(SIN_NADA, [], usar_transformer=False, usar_llm=False)
     assert "No se detectó ninguna colisión" in asistente.responder("¿Hubo algún accidente?")["respuesta"]
     assert "No se registró ningún evento" in asistente.responder("¿Cuántas alertas hubo?")["respuesta"]
 
 
 def test_si_el_modelo_no_esta_entrenado_responde_por_reglas(tmp_path):
+    """Si faltan las redes, el asistente no falla: responde por reglas y explica cómo entrenarlas."""
     falta = str(tmp_path / "no_existe")
     asistente = Asistente(RESUMEN, EVENTOS, ruta_modelo=falta, ruta_vocabulario=falta,
                           ruta_llm=falta, ruta_vocabulario_llm=falta)

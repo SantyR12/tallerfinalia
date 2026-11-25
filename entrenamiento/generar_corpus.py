@@ -23,7 +23,9 @@ from src.lenguaje import cuenta_al_azar, fichas_de_datos, respuestas_validas  # 
 
 
 def main(ejemplos=24000, semilla=11):
-    rng = random.Random(semilla)
+    """Escribe el CSV con `ejemplos` filas (datos, pregunta, respuesta)."""
+    rng = random.Random(semilla)        # generador de azar con semilla: siempre da el mismo corpus
+    # Se agrupan las preguntas por intención: {"contar_colisiones": [...], ...}
     por_intencion = {}
     for pregunta, intencion in generar_preguntas():
         por_intencion.setdefault(intencion, []).append(pregunta)
@@ -32,11 +34,11 @@ def main(ejemplos=24000, semilla=11):
     filas = []
     for _ in range(ejemplos):
         intencion = rng.choice(intenciones)             # todas las intenciones por igual
-        cuenta = cuenta_al_azar(rng)
+        cuenta = cuenta_al_azar(rng)                    # un video inventado
         filas.append((
-            " ".join(fichas_de_datos(cuenta)),
-            rng.choice(por_intencion[intencion]),
-            rng.choice(respuestas_validas(intencion, cuenta)),
+            " ".join(fichas_de_datos(cuenta)),          # "colisiones_uno riesgos_cero ..."
+            rng.choice(por_intencion[intencion]),       # una forma de hacer la pregunta
+            rng.choice(respuestas_validas(intencion, cuenta)),     # una respuesta correcta
         ))
 
     os.makedirs(os.path.dirname(config.RUTA_CORPUS), exist_ok=True)

@@ -21,7 +21,7 @@ import json
 import unicodedata
 
 import config
-from src.lenguaje import armar_entrada, con_nombre, contar, rellenar, respuestas_validas
+from src.lenguaje import _lista, armar_entrada, con_nombre, contar, rellenar, respuestas_validas
 
 INTENCIONES = [
     "contar_colisiones", "contar_caidas", "contar_riesgos",
@@ -35,6 +35,7 @@ PLURAL_TIPO = {"colision": "colisiones", "riesgo": "situaciones de riesgo", "cai
 
 
 def _cantidad(n, singular, plural):
+    """'1 evento' / '3 eventos'."""
     return f"{n} {singular if n == 1 else plural}"
 
 
@@ -49,19 +50,11 @@ def _normalizar(texto):
     return "".join(c for c in texto if unicodedata.category(c) != "Mn")
 
 
-def _lista(elementos):
-    """['a', 'b', 'c'] -> 'a, b y c'"""
-    elementos = list(elementos)
-    if len(elementos) <= 1:
-        return "".join(elementos)
-    return ", ".join(elementos[:-1]) + " y " + elementos[-1]
-
-
 # ----------------------------------------------------------------------------
 # Paso 1: del registro de eventos a un informe en texto
 # ----------------------------------------------------------------------------
 def construir_informe(resumen, eventos):
-    """Redacta el informe que el Transformer usará como contexto."""
+    """Redacta en texto corrido lo que pasó en el video (se guarda en informe.txt)."""
     objetos = resumen.get("objetos", {})
     conteo = resumen.get("eventos", {})
     total_objetos = sum(objetos.values())
@@ -101,9 +94,10 @@ def construir_informe(resumen, eventos):
     for numero, e in enumerate(eventos, start=1):
         quienes = _lista(f"{config.NOMBRE_CLASE.get(clase, clase)} {id_}"
                          for clase, id_ in zip(e["clases"], e["ids"]))
+        participantes = f"y participaron: {quienes}" if e["ids"] else "sin objetos identificados"
         frases.append(
             f"El evento {numero} fue una {NOMBRE_TIPO[e['tipo']]} de nivel {e['nivel']}, "
-            f"ocurrió en el segundo {e['tiempo_s']} y participaron: {quienes}."
+            f"ocurrió en el segundo {e['tiempo_s']} {participantes}."
         )
 
     for tipo in ("colision", "riesgo", "caida"):
@@ -127,6 +121,16 @@ def construir_informe(resumen, eventos):
 # El asistente
 # ----------------------------------------------------------------------------
 class Asistente:
+    """
+    Responde preguntas sobre un video ya analizado.
+
+        asistente = Asistente(resumen, eventos)
+        asistente.responder("¿cuántas colisiones hubo?")
+
+    Las redes se cargan la primera vez que se necesitan, no al crear el objeto:
+    así el programa arranca rápido y sigue funcionando si falta alguna.
+    """
+
     def __init__(self, resumen, eventos, usar_transformer=True, usar_llm=True,
                  ruta_modelo=config.RUTA_ASISTENTE, ruta_vocabulario=config.RUTA_VOCABULARIO,
                  ruta_llm=config.RUTA_LLM, ruta_vocabulario_llm=config.RUTA_VOCABULARIO_LLM):
@@ -256,6 +260,8 @@ class Asistente:
     def _intencion_por_palabras(self, pregunta):
         """Deduce la intención buscando palabras clave."""
         p = _normalizar(pregunta)
+        # Se busca "choque" y no "chocó": el texto ya está sin tildes, y con
+        # raíces como "estrell" se cubren "estrelló", "estrellaron"...
         pide_momento = any(palabra in p for palabra in
                            ("cuando", "segundo", "momento", "minuto", "que hora", "instante"))
         temas = {

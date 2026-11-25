@@ -11,7 +11,6 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import config  # noqa: E402
 from src.detector import Detector  # noqa: E402
 from src.eventos import AnalizadorEventos  # noqa: E402
 from src.seguimiento import SeguidorObjetos, iou  # noqa: E402
@@ -22,6 +21,7 @@ AZUL, ROJO, VERDE = (160, 60, 30), (40, 40, 190), (60, 150, 60)
 
 
 def analizar(escena, frames):
+    """Pasa una escena por el detector y las reglas. Devuelve (analizador, detecciones por fotograma)."""
     detector = Detector(fps=FPS, clasificador=ClasificadorFijo())
     analizador = AnalizadorEventos(fps=FPS)
     vistos = []
@@ -33,17 +33,20 @@ def analizar(escena, frames):
 
 
 def tipos(analizador):
+    """Lista con el tipo de cada evento detectado, en orden: ['riesgo', 'colision', ...]."""
     return [e.tipo for e in analizador.eventos]
 
 
 # ------------------------------------------------------------------ seguidor
 def test_iou():
+    """IoU vale 1 para cajas iguales, 0 para cajas separadas y 1/3 para dos cajas que comparten la mitad."""
     assert iou((0, 0, 10, 10), (0, 0, 10, 10)) == 1.0
     assert iou((0, 0, 10, 10), (20, 20, 30, 30)) == 0.0
     assert abs(iou((0, 0, 10, 10), (5, 0, 15, 10)) - 1 / 3) < 1e-9
 
 
 def test_seguidor_conserva_el_id_y_detecta_la_fusion():
+    """Dos objetos que se juntan en una sola mancha conservan sus ID y uno queda 'oculto en' el otro."""
     seguidor = SeguidorObjetos(fps=FPS)
     for f in range(20):                         # dos objetos que se acercan
         salida = seguidor.actualizar([(100 + 5 * f, 100, 150 + 5 * f, 140),
@@ -57,6 +60,7 @@ def test_seguidor_conserva_el_id_y_detecta_la_fusion():
 
 
 def test_un_objeto_que_cruza_la_escena_conserva_su_id():
+    """Un carro que cruza toda la imagen es siempre el mismo objeto y se cuenta una sola vez."""
     def escena(f):
         return [(60 + 6 * f, 250, 90, 50, AZUL)]
 
@@ -105,6 +109,7 @@ def test_cruce_en_carriles_distintos_no_es_colision():
 
 
 def test_dos_carros_en_fila_no_generan_alertas():
+    """Dos carros que van uno detrás del otro a la misma velocidad no producen ninguna alerta."""
     def escena(f):
         return [(60 + 5 * f, 250, 90, 50, AZUL), (220 + 5 * f, 250, 90, 50, ROJO)]
 
@@ -113,6 +118,7 @@ def test_dos_carros_en_fila_no_generan_alertas():
 
 
 def test_carro_que_frena_antes_del_peaton_es_riesgo_sin_colision():
+    """Un carro que frena a tiempo ante un peatón genera alerta de riesgo, pero no de colisión."""
     def escena(f):
         # avanza a 6 px por fotograma y frena a fondo durante 0,9 s: queda en x = 313
         t = min(max(f - 72, 0), 27)
@@ -123,20 +129,6 @@ def test_carro_que_frena_antes_del_peaton_es_riesgo_sin_colision():
     analizador, _ = analizar(escena, 120)
     assert "riesgo" in tipos(analizador)
     assert "colision" not in tipos(analizador)
-
-
-def test_con_la_proteccion_un_carro_detenido_no_se_vuelve_fondo(monkeypatch):
-    """
-    Con la opción PROTECCION_S encendida, un vehículo reconocido que se detiene
-    sigue a la vista más tiempo que SEGUNDOS_HASTA_FONDO.
-    """
-    monkeypatch.setattr(config, "PROTECCION_S", 10)
-    def escena(f):
-        return [(min(60 + 5 * f, 300), 250, 90, 50, AZUL)]      # se detiene en x = 300
-
-    quieto = int((config.SEGUNDOS_HASTA_FONDO + 3) * FPS)        # 3 s más de lo que tardaría
-    _, vistos = analizar(escena, 48 + quieto)
-    assert len(vistos[-1]) == 1 and not vistos[-1][0].estimada
 
 
 # ----------------------------------------------------- cambios de toda la imagen

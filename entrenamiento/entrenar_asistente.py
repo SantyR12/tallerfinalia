@@ -24,28 +24,34 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import keras  # noqa: E402
 
 import config  # noqa: E402
-from src.transformer import codificar, construir_transformer, normalizar  # noqa: E402
+from src.texto import codificar, normalizar  # noqa: E402
+from src.transformer import construir_transformer  # noqa: E402
 
 
 def main(epocas=25, semilla=7):
-    keras.utils.set_random_seed(semilla)
+    """Lee las preguntas, entrena el clasificador de intenciones y lo guarda."""
+    keras.utils.set_random_seed(semilla)        # misma semilla = mismos resultados al repetir
     with open(config.RUTA_PREGUNTAS, encoding="utf-8") as archivo:
         filas = [(f["pregunta"], f["intencion"]) for f in csv.DictReader(archivo)]
-    random.Random(semilla).shuffle(filas)
+    random.Random(semilla).shuffle(filas)       # barajar antes de repartir en conjuntos
 
     # Vocabulario: 0 = relleno, 1 = palabra desconocida, 2... = palabras del dataset
     palabras = sorted({p for pregunta, _ in filas for p in normalizar(pregunta).split()})
     vocabulario = {palabra: indice for indice, palabra in enumerate(palabras, start=2)}
     intenciones = sorted({intencion for _, intencion in filas})
 
+    # x: cada pregunta como 16 números. y: el número de su intención.
     x = np.array([codificar(p, vocabulario, config.LARGO_PREGUNTA) for p, _ in filas], dtype="int32")
     y = np.array([intenciones.index(i) for _, i in filas], dtype="int32")
 
     # 70 % entrenamiento, 15 % validación, 15 % prueba
     n1, n2 = int(0.70 * len(x)), int(0.85 * len(x))
     modelo = construir_transformer(config.LARGO_PREGUNTA, len(vocabulario) + 2, len(intenciones))
+    # Adam ajusta los pesos; la entropía cruzada es la pérdida para elegir una
+    # entre varias clases (aquí, 17 intenciones); accuracy = fracción de aciertos
     modelo.compile(optimizer="adam", loss="sparse_categorical_crossentropy", metrics=["accuracy"])
     modelo.summary()
+    # EarlyStopping detiene el entrenamiento si la validación deja de mejorar
     modelo.fit(
         x[:n1], y[:n1], validation_data=(x[n1:n2], y[n1:n2]),
         epochs=epocas, batch_size=64, verbose=2,

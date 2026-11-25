@@ -43,6 +43,7 @@ class Evento:
     descripcion: str
 
     def como_dict(self):
+        """El evento como diccionario, para guardarlo en JSON o CSV."""
         datos = asdict(self)
         datos["ids"] = list(self.ids)
         datos["clases"] = list(self.clases)
@@ -55,6 +56,8 @@ class Pista:
     def __init__(self, id_pista, fps):
         self.id = id_pista
         largo = max(4, int(config.MEMORIA_PISTA_S * fps))
+        # deque con maxlen: lista que solo guarda las últimas `largo` cajas;
+        # al agregar una nueva, la más vieja se descarta sola
         self.historial = deque(maxlen=largo)   # (frame, x1, y1, x2, y2)
         self.votos_clase = Counter()           # la clase puede variar entre fotogramas
         self.observaciones = 0
@@ -67,6 +70,7 @@ class Pista:
         self.impacto_reportado = False
 
     def agregar(self, frame, clase, caja, estimada=False, oculta_en=None, en_borde=False):
+        """Anota cómo se vio el objeto en este fotograma."""
         if self.historial:
             # Si el área cambia de golpe (dos manchas que se funden o se
             # separan) o la caja pasa de real a estimada, el desplazamiento
@@ -93,20 +97,25 @@ class Pista:
         return self.historial[max(-1 - saltar, -len(self.historial))][1:]
 
     # --- propiedades de la última observación ---
+    # (@property permite escribir pista.clase en lugar de pista.clase())
     @property
     def clase(self):
+        """La clase con más votos hasta ahora."""
         return self.votos_clase.most_common(1)[0][0]
 
     @property
     def ultimo_frame(self):
+        """Número del último fotograma en que se vio."""
         return self.historial[-1][0]
 
     @property
     def caja(self):
+        """Última caja: (x1, y1, x2, y2)."""
         return self.historial[-1][1:]
 
     @property
     def centro(self):
+        """Punto medio de la última caja."""
         x1, y1, x2, y2 = self.caja
         return ((x1 + x2) / 2, (y1 + y2) / 2)
 
@@ -198,6 +207,7 @@ class AnalizadorEventos:
 
     def __init__(self, fps=30.0):
         self.fps = float(fps) if fps and fps > 0 else 30.0
+        # k = cuántos fotogramas hacia atrás se miran para medir la velocidad
         self.k = max(2, round(config.VENTANA_VELOCIDAD_S * self.fps))
         self.pistas = {}            # id -> Pista (objetos visibles hace poco)
         self.contactos = {}         # (id_a, id_b) -> datos del contacto en curso
@@ -236,6 +246,7 @@ class AnalizadorEventos:
         for clave in [c for c in self.contactos if not set(c) <= self.pistas.keys()]:
             del self.contactos[clave]
 
+        # Solo se evalúan los objetos que se vieron en ESTE fotograma
         visibles = sorted(
             (p for p in self.pistas.values() if p.ultimo_frame == frame),
             key=lambda p: p.id,
@@ -326,6 +337,9 @@ class AnalizadorEventos:
         distancia = math.hypot(*p)
         if distancia == 0:
             return p, v, 0.0
+        # Producto punto entre posición y velocidad relativas: dice cuánto de la
+        # velocidad apunta hacia el otro objeto. El signo menos lo vuelve
+        # positivo cuando se acercan.
         acercamiento = -(p[0] * v[0] + p[1] * v[1]) / distancia    # px por fotograma
         tam_a = math.sqrt(max((ax2 - ax1) * (ay2 - ay1), 1.0))
         tam_b = math.sqrt(max((bx2 - bx1) * (by2 - by1), 1.0))
@@ -344,6 +358,7 @@ class AnalizadorEventos:
         completo=True devuelve también la separación actual, en tamaños.
         """
         def medidas(atras):
+            """Separación entre los centros y producto de los tamaños, hace `atras` fotogramas."""
             ax1, ay1, ax2, ay2 = a.muestra(atras)
             bx1, by1, bx2, by2 = b.muestra(atras)
             distancia = math.hypot((ax1 + ax2 - bx1 - bx2) / 2, (ay1 + ay2 - by1 - by2) / 2)
@@ -619,9 +634,12 @@ class AnalizadorEventos:
         if separacion / cierre_real > config.TTC_UMBRAL_S:
             return None                     # descontada la perspectiva, falta más para el contacto
 
+        # Tiempo hasta el contacto (TTC, "time to collision"). Si los dos siguen
+        # en línea recta a la velocidad actual, la separación en el instante t
+        # es p + v·t. Esa distancia es mínima cuando t = -(p·v) / |v|².
         v2 = v[0] ** 2 + v[1] ** 2
         t_frames = -(p[0] * v[0] + p[1] * v[1]) / v2    # momento de máximo acercamiento
-        ttc = t_frames / self.fps
+        ttc = t_frames / self.fps                       # de fotogramas a segundos
         if not 0 < ttc <= config.TTC_UMBRAL_S:
             return None
 
@@ -661,6 +679,8 @@ class AnalizadorEventos:
         def aspecto(h):                     # ancho / alto
             return (h[3] - h[1]) / max(h[4] - h[2], 1.0)
 
+        # Se compara el primer tercio de la ventana (antes) con el último (ahora).
+        # Se usa la mediana y no el promedio para que una caja mala aislada no engañe.
         tercio = max(2, len(recientes) // 3)
         antes, ahora = recientes[:tercio], recientes[-tercio:]
         aspecto_antes = median(aspecto(h) for h in antes)

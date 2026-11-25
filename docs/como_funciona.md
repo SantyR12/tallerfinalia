@@ -30,8 +30,6 @@ Archivo `src/movimiento.py`. No es aprendizaje automático: es procesamiento cl�
 
 **Cuánto tarda algo en volverse fondo.** La tasa de aprendizaje se fija para que un objeto que se detiene tarde unos 5 segundos en pasar a ser parte del fondo (`SEGUNDOS_HASTA_FONDO`). Ese tiempo alcanza para ver dos vehículos que chocaron y quedaron quietos, y no es tan largo como para que un error del fondo dure medio video. `PROPORCION_FONDO` = 0,7 hace que el aspecto viejo de la escena se olvide poco después de aprender el nuevo.
 
-**Vehículos que se detienen (opción apagada).** Un carro que espera en un cruce se vuelve fondo a los 5 segundos y puede desaparecer antes de recibir el golpe. Para ese caso existe `PROTECCION_S` en `config.py`: con el valor 10, el fondo deja de actualizarse dentro de las cajas de los vehículos ya reconocidos durante 10 segundos desde su último movimiento. Viene en 0 (apagada) porque en un trancón hace daño: toda la fila detenida sigue a la vista y cada carro que frena detrás del último se confunde con un choque por alcance. En las pruebas, encendida subió de 5 a 19 las alertas en un video de trancón sin ningún accidente.
-
 **Primer segundo.** Al empezar, el fondo se aprende rápido durante un segundo y en ese tramo no se entregan detecciones.
 
 **Cambios de toda la imagen.** Si más del 40 % de la imagen aparece "en movimiento" durante medio segundo, no son objetos: la cámara se movió o cambió la luz. El fondo se descarta y se aprende de nuevo.

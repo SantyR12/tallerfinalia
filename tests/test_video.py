@@ -36,6 +36,7 @@ class DetectorSimulado:
 
 
 def crear_video_gris(ruta, frames=90, fps=30, tam=(640, 360)):
+    """Escribe un video corto de fotogramas grises para usarlo como entrada."""
     escritor = cv2.VideoWriter(str(ruta), cv2.VideoWriter_fourcc(*"mp4v"), fps, tam)
     for _ in range(frames):
         escritor.write(np.full((tam[1], tam[0], 3), 90, dtype=np.uint8))
@@ -43,6 +44,7 @@ def crear_video_gris(ruta, frames=90, fps=30, tam=(640, 360)):
 
 
 def test_recorrido_completo_guarda_alertas_y_resultados(tmp_path):
+    """procesar() recorre el video, dibuja la alerta y guarda eventos, resumen, informe y capturas."""
     video = tmp_path / "entrada.mp4"
     salida = tmp_path / "salidas"
     crear_video_gris(video)

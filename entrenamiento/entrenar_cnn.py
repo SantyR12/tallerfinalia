@@ -44,14 +44,20 @@ def construir_cnn(clases, tam=config.TAM_IMAGEN):
         layers.RandomTranslation(0.08, 0.08),
         layers.RandomZoom(0.10),
         layers.RandomBrightness(0.15, value_range=(0.0, 1.0)),
-        # Extracción de características
+        # Extracción de características. Cada Conv2D pasa filtros de 3 x 3 por
+        # la imagen: los primeros aprenden bordes y colores; los siguientes,
+        # formas (ruedas, ventanas). ReLU deja pasar solo los valores positivos.
+        # MaxPooling reduce la imagen a la mitad quedándose con el valor más
+        # alto de cada cuadro de 2 x 2: menos cálculo y más tolerancia a
+        # pequeños desplazamientos.
         layers.Conv2D(32, (3, 3), activation="relu", padding="same"),
         layers.MaxPooling2D((2, 2)),                    # 64 -> 32
         layers.Conv2D(64, (3, 3), activation="relu", padding="same"),
         layers.MaxPooling2D((2, 2)),                    # 32 -> 16
         layers.Conv2D(128, (3, 3), activation="relu", padding="same"),
         layers.MaxPooling2D((2, 2)),                    # 16 -> 8
-        # Clasificación
+        # Clasificación: Flatten pone en una sola fila los 8 x 8 x 128 = 8192
+        # valores, y las capas densas deciden la clase a partir de ellos.
         layers.Flatten(),
         layers.Dropout(0.4),                            # contra el sobreajuste
         layers.Dense(128, activation="relu"),
@@ -90,18 +96,23 @@ class Lotes(keras.utils.PyDataset):
     """Entrega los lotes de entrenamiento, con una nitidez distinta en cada época."""
 
     def __init__(self, x, y, pesos, lote, semilla=7):
+        # x: imágenes; y: número de clase de cada una; pesos: peso de cada
+        # clase en la pérdida; lote: cuántas imágenes se entregan cada vez
         super().__init__()
         self.x, self.y, self.pesos, self.lote = x, y, pesos, lote
         self.rng = np.random.default_rng(semilla)
         self.on_epoch_end()
 
     def __len__(self):
+        """Cuántos lotes tiene una época."""
         return int(np.ceil(len(self.x) / self.lote))
 
     def on_epoch_end(self):
+        """Keras lo llama al terminar cada época."""
         self.orden = self.rng.permutation(len(self.x))      # barajar en cada época
 
     def __getitem__(self, i):
+        """Entrega el lote número i: (imágenes, clases, pesos)."""
         indices = self.orden[i * self.lote:(i + 1) * self.lote]
         x = np.stack([bajar_nitidez(self.x[j], self.rng) for j in indices])
         # El tercer elemento es el peso de cada imagen en la pérdida
@@ -109,13 +120,15 @@ class Lotes(keras.utils.PyDataset):
 
 
 def main():
+    """Carga los datos, entrena la red, la evalúa y guarda todo."""
     parser = argparse.ArgumentParser(description="Entrena la CNN clasificadora de objetos")
     parser.add_argument("--csv", default="datos/dataset_objetos.csv")
     parser.add_argument("--epocas", type=int, default=40)
     parser.add_argument("--lote", type=int, default=64)
     args = parser.parse_args()
-    keras.utils.set_random_seed(7)
+    keras.utils.set_random_seed(7)      # misma semilla = mismos resultados al repetir
 
+    # ------------------------------------------------------------ 1. datos
     if not os.path.exists(args.csv):
         sys.exit(
             f"No existe '{args.csv}'. Créalo primero con:\n"
@@ -124,6 +137,9 @@ def main():
     with open(args.csv, encoding="utf-8") as archivo:
         filas = list(csv.DictReader(archivo))
     clases = sorted({f["clase"] for f in filas})
+    # Tres conjuntos separados: con "entrenamiento" la red aprende, con
+    # "validacion" se vigila el sobreajuste mientras aprende y con "prueba"
+    # (imágenes que nunca vio) se mide el resultado final.
     conjuntos = {}
     for nombre in ("entrenamiento", "validacion", "prueba"):
         seleccion = [(f["ruta"], f["clase"]) for f in filas if f["conjunto"] == nombre]
@@ -131,15 +147,24 @@ def main():
         print(f"{nombre}: {len(conjuntos[nombre][1])} imágenes")
     (x_ent, y_ent), (x_val, y_val), (x_pru, y_pru) = (conjuntos[n] for n in
                                                       ("entrenamiento", "validacion", "prueba"))
+    # Los píxeles pasan de 0-255 a 0-1: la red aprende mejor con números pequeños
     x_val, x_pru = x_val.astype(np.float32) / 255.0, x_pru.astype(np.float32) / 255.0
 
     # Si hay clases con menos imágenes, sus errores pesan más
     cuenta = np.bincount(y_ent, minlength=len(clases))
     pesos = (len(y_ent) / (len(clases) * np.maximum(cuenta, 1))).astype(np.float32)
 
+    # ------------------------------------------------------ 2. entrenamiento
     modelo = construir_cnn(len(clases))
+    # optimizer: Adam ajusta los pesos después de cada lote (tasa de aprendizaje 0.001).
+    # loss: entropía cruzada, la función de pérdida para clasificar en varias
+    #       clases; castiga más cuanto menos probabilidad recibió la clase correcta.
+    # metrics: accuracy = fracción de imágenes acertadas.
     modelo.compile(optimizer="adam", loss="sparse_categorical_crossentropy", metrics=["accuracy"])
-    modelo.summary()
+    modelo.summary()                    # imprime las capas y el número de parámetros
+    # Una época = una pasada por todas las imágenes de entrenamiento.
+    # EarlyStopping: si la pérdida de validación no mejora en 6 épocas seguidas,
+    # se detiene y se recuperan los pesos de la mejor época.
     historia = modelo.fit(
         Lotes(x_ent, y_ent, pesos, args.lote), validation_data=(x_val, y_val),
         epochs=args.epocas, verbose=2,
@@ -147,8 +172,10 @@ def main():
                                                  restore_best_weights=True)],
     )
 
-    # ------------------------------------------------------------ evaluación
+    # --------------------------------------------------------- 3. evaluación
+    # Se mide con el conjunto de prueba, que la red no vio al entrenar
     perdida, exactitud = modelo.evaluate(x_pru, y_pru, verbose=0)
+    # predict da 7 probabilidades por imagen; argmax se queda con la más alta
     predicho = np.asarray(modelo.predict(x_pru, verbose=0)).argmax(axis=1)
     print(f"\nExactitud en prueba: {exactitud:.3f}")
 
@@ -159,6 +186,7 @@ def main():
     exactitud_grupos = float((grupo[predicho] == grupo[y_pru]).mean())
     print(f"Exactitud por grupos (carro, bus y camión como 'vehiculo'): {exactitud_grupos:.3f}")
 
+    # ----------------------------------------------------- 4. guardar todo
     carpeta = "modelos/entrenamiento_cnn"
     os.makedirs(carpeta, exist_ok=True)
     modelo.save(config.RUTA_CNN)
@@ -167,6 +195,9 @@ def main():
 
     try:
         from sklearn.metrics import classification_report, confusion_matrix
+        # Por clase: precision (de lo que dijo "carro", cuánto era carro),
+        # recall (de los carros reales, cuántos encontró) y F1 (resume las dos).
+        # La matriz de confusión muestra con qué clase se confunde cada una.
         reporte = classification_report(y_pru, predicho, labels=list(range(len(clases))),
                                         target_names=clases, zero_division=0)
         matriz = confusion_matrix(y_pru, predicho, labels=list(range(len(clases))))
@@ -182,6 +213,7 @@ def main():
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
 
+        # Curvas de pérdida y exactitud por época (entrenamiento y validación)
         figura, ejes = plt.subplots(1, 2, figsize=(11, 4))
         ejes[0].plot(historia.history["loss"], label="entrenamiento")
         ejes[0].plot(historia.history["val_loss"], label="validación")
@@ -191,6 +223,7 @@ def main():
         ejes[1].set_title("Exactitud"); ejes[1].set_xlabel("época"); ejes[1].legend()
         figura.tight_layout(); figura.savefig(f"{carpeta}/curvas.png", dpi=120); plt.close(figura)
 
+        # Matriz de confusión como imagen
         figura, eje = plt.subplots(figsize=(6.5, 5.5))
         eje.imshow(matriz, cmap="Blues")
         eje.set_xticks(range(len(clases)), clases, rotation=45, ha="right")

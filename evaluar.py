@@ -12,6 +12,10 @@ Un choque cuenta como detectado si hay una alerta de colisión entre un segundo
 antes y cuatro segundos después del momento anotado. Cualquier otra alerta de
 colisión es una falsa alarma.
 
+La comparación es solo por el momento: el script no sabe qué vehículos chocaron.
+Hay que mirar la captura de cada alerta (salidas/capturas) para confirmar que
+corresponde al choque y no a otros vehículos que pasaban en ese instante.
+
 Uso:
     python evaluar.py --carpeta ruta/a/los/videos --verdad datos/choques_reales.csv
 """
@@ -25,6 +29,8 @@ import cv2
 from src.detector import Detector
 from src.eventos import AnalizadorEventos
 
+# Ventana en la que una alerta cuenta como acierto: desde 1 s antes hasta 4 s
+# después del momento anotado
 ANTES_S, DESPUES_S = 1.0, 4.0
 
 
@@ -48,6 +54,7 @@ def analizar(ruta, detector):
 
 
 def main():
+    """Analiza cada video anotado e imprime el resultado y las métricas."""
     parser = argparse.ArgumentParser(description="Evalúa el sistema con videos reales anotados")
     parser.add_argument("--carpeta", required=True, help="carpeta con los videos")
     parser.add_argument("--verdad", default="datos/choques_reales.csv")
@@ -57,6 +64,8 @@ def main():
         anotados = list(csv.DictReader(archivo))
 
     detector = Detector(fps=30.0)               # carga la CNN una sola vez
+    # Contadores: choques detectados, videos con choque, alertas de colisión
+    # falsas y alertas de otro tipo (riesgo y caída)
     detectados = con_choque = falsas = otras = 0
     for fila in anotados:
         ruta = os.path.join(args.carpeta, fila["video"])
@@ -84,10 +93,14 @@ def main():
 
     print(f"\nChoques detectados: {detectados} de {con_choque}")
     print(f"Alertas de colisión falsas: {falsas}")
+    # Precisión: de las alertas de colisión, cuántas coinciden con un choque.
+    # Recall: de los choques anotados, cuántos se detectaron.
     if detectados + falsas:
         print(f"Precisión: {detectados / (detectados + falsas):.2f}   "
               f"Recall: {detectados / max(con_choque, 1):.2f}")
     print(f"Alertas de riesgo y de caída (no se evalúan aquí): {otras}")
+    print("Nota: solo se compara el momento de la alerta. Revise la captura de cada colisión "
+          "para confirmar que corresponde al choque.")
 
 
 if __name__ == "__main__":

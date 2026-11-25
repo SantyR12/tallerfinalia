@@ -46,6 +46,7 @@ def dibujar(frame, detecciones, eventos_activos, resumen):
         if getattr(d, "estimada", False):
             continue                            # oculto dentro de otro: no hay caja real que dibujar
         x1, y1, x2, y2 = (int(v) for v in d.caja)
+        # Si el objeto participa en una alerta, su caja se pinta del color de la alerta y más gruesa
         color = en_alerta.get(d.id, COLOR_CLASE.get(d.clase, (255, 255, 255)))
         grosor = 4 if d.id in en_alerta else 2
         cv2.rectangle(frame, (x1, y1), (x2, y2), color, grosor)
@@ -86,6 +87,8 @@ def guardar_resultados(resumen, eventos, carpeta=config.CARPETA_SALIDAS):
     carpeta.mkdir(parents=True, exist_ok=True)
     filas = [e.como_dict() for e in eventos]
 
+    # CSV: una fila por evento, para abrirlo en Excel
+
     with open(carpeta / "eventos.csv", "w", newline="", encoding="utf-8") as archivo:
         columnas = ["numero", "tipo", "nivel", "tiempo_s", "frame", "ids", "clases", "descripcion"]
         escritor = csv.DictWriter(archivo, fieldnames=columnas)
@@ -102,6 +105,7 @@ def guardar_resultados(resumen, eventos, carpeta=config.CARPETA_SALIDAS):
                 "descripcion": fila["descripcion"],
             })
 
+    # JSON: los mismos datos en el formato que después lee el asistente
     with open(carpeta / "eventos.json", "w", encoding="utf-8") as archivo:
         json.dump(filas, archivo, ensure_ascii=False, indent=2)
     with open(carpeta / "resumen.json", "w", encoding="utf-8") as archivo:

@@ -10,6 +10,7 @@ ANCHO, ALTO, FPS = 640, 360, 30
 
 
 def fondo():
+    """Imagen de la vía vacía: gris con un poco de grano, como el asfalto."""
     rng = np.random.default_rng(0)
     base = np.full((ALTO, ANCHO, 3), 95, dtype=np.int16)
     base += rng.integers(-6, 7, size=base.shape, dtype=np.int16)     # asfalto con grano
@@ -17,6 +18,7 @@ def fondo():
 
 
 def dibujar_objeto(frame, x_centro, base, ancho, alto, color):
+    """Pinta un rectángulo de color (el 'vehículo' o la 'persona') apoyado en `base`."""
     x1, x2 = int(x_centro - ancho / 2), int(x_centro + ancho / 2)
     y1, y2 = int(base - alto), int(base)
     x1, x2 = max(x1, 0), min(x2, ANCHO)
@@ -46,6 +48,7 @@ class ClasificadorFijo:
     """Sustituye a la CNN en las pruebas: clasifica por el tamaño de la caja."""
 
     def clasificar(self, frame, cajas):
+        """Sin red neuronal: caja alta = persona, caja pequeña = motocicleta, el resto = vehículo."""
         resultado = []
         for x1, y1, x2, y2 in cajas:
             ancho, alto = x2 - x1, y2 - y1

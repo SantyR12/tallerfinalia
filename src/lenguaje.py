@@ -52,6 +52,7 @@ def contar(resumen, eventos):
 
 
 def categoria(n):
+    """Resume un número en la palabra que ve el modelo: 0 -> 'cero', 1 -> 'uno', 2 o más -> 'varios'."""
     return "cero" if n == 0 else "uno" if n == 1 else "varios"
 
 
@@ -82,6 +83,7 @@ def respuestas_validas(intencion, cuenta):
     Se usan para crear el corpus de entrenamiento y para comprobar que lo que
     escribe el modelo es coherente con los datos.
     """
+    # "contar_colisiones" se separa en la acción ("contar") y el tema ("colisiones")
     accion, _, tema = intencion.partition("_")
 
     if tema in EVENTO:
@@ -174,6 +176,7 @@ def respuestas_validas(intencion, cuenta):
 def cuenta_al_azar(rng=random):
     """Inventa un video: cuántos eventos y objetos de cada tipo hubo."""
     def cantidad():
+        """Un número al azar: 0 (35 % de las veces), 1 (25 %) o entre 2 y 9 (40 %)."""
         return rng.choices([0, 1, rng.randint(2, 9)], weights=[0.35, 0.25, 0.40])[0]
 
     cuenta = {c: cantidad() for c in list(TIPO_DE) + list(CLASE_DE)}
@@ -187,6 +190,7 @@ def cuenta_al_azar(rng=random):
 # Texto <-> fichas
 # ----------------------------------------------------------------------------
 def fichas_de_pregunta(pregunta, largo):
+    """'¿Cuántas colisiones hubo?' -> ['cuantas', 'colisiones', 'hubo'] (máximo `largo` palabras)."""
     return normalizar(pregunta).split()[:largo]
 
 
@@ -200,6 +204,7 @@ def armar_entrada(cuenta, pregunta, largo_pregunta):
 # De lo que escribe el modelo a la respuesta final
 # ----------------------------------------------------------------------------
 def _lista(elementos):
+    """['a', 'b', 'c'] -> 'a, b y c'"""
     elementos = list(elementos)
     if len(elementos) <= 1:
         return "".join(elementos)
@@ -221,7 +226,9 @@ def con_nombre(n, clase):
 def valores_de_ranuras(resumen, eventos):
     """Calcula, a partir del registro, el texto que va en cada ranura."""
     cuenta = contar(resumen, eventos)
+    # Ranuras de cantidad: <n_colisiones>, <n_vehiculos>, ...
     valores = {f"<n_{c}>": str(n) for c, n in cuenta.items()}
+    # Ranuras de lista y de momento, por tipo de evento: <lista_colisiones>, <t_colisiones>, ...
     for tema, tipo in TIPO_DE.items():
         del_tipo = [e for e in eventos if e["tipo"] == tipo]
         valores[f"<lista_{tema}>"] = "; ".join(e["descripcion"] for e in del_tipo)

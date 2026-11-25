@@ -48,6 +48,8 @@ def preparar_recorte(frame, caja, tam=config.TAM_IMAGEN):
 
 
 class ClasificadorCNN:
+    """Carga la red entrenada y clasifica recortes del video."""
+
     def __init__(self, ruta_modelo=config.RUTA_CNN, ruta_clases=config.RUTA_CLASES):
         if not Path(ruta_modelo).exists():
             raise FileNotFoundError(
@@ -70,8 +72,10 @@ class ClasificadorCNN:
         """Devuelve, para cada caja, la pareja (clase, confianza)."""
         if not cajas:
             return []
+        # Todos los recortes del fotograma se pasan juntos por la red (un "lote"):
+        # es mucho más rápido que pasarlos uno por uno
         lote = np.stack([preparar_recorte(frame, caja) for caja in cajas])
         probabilidades = np.asarray(self.modelo(lote, training=False))     # salida softmax
         probabilidades = probabilidades @ self.sumar                       # por grupo
-        indices = probabilidades.argmax(axis=1)
+        indices = probabilidades.argmax(axis=1)                             # el grupo más probable
         return [(self.grupos[i], float(probabilidades[n, i])) for n, i in enumerate(indices)]

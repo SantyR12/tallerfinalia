@@ -73,26 +73,33 @@ class _Objeto:
         self.confirmado = False         # pasa a True cuando de verdad se desplaza
 
     def predecir(self):
+        """Dónde debería estar en el fotograma siguiente: su caja movida con su velocidad."""
         vx, vy = self.velocidad
         x1, y1, x2, y2 = self.caja
         return (x1 + vx, y1 + vy, x2 + vx, y2 + vy)
 
 
 class SeguidorObjetos:
+    """Le pone un número (ID) a cada objeto y se lo conserva de un fotograma a otro."""
+
     def __init__(self, fps=30.0):
-        self.objetos = {}
-        self.siguiente_id = 1
+        self.objetos = {}               # id -> _Objeto (todos los que se están siguiendo)
+        self.siguiente_id = 1           # número que recibirá el próximo objeto nuevo
+        # Fotogramas que se guarda un objeto sin verlo antes de olvidarlo
         self.perdida_maxima = max(2, int(config.PERDIDA_MAXIMA_S * fps))
 
     def reiniciar(self):
+        """Olvida todos los objetos (se usa al empezar otro video)."""
         self.objetos = {}
         self.siguiente_id = 1
 
     def actualizar(self, cajas):
         """Recibe las cajas del fotograma y devuelve la lista de `Seguido`."""
+        # 1. Predicción: dónde se espera ver ahora a cada objeto conocido
         predicciones = {i: o.predecir() for i, o in self.objetos.items()}
 
-        # Todas las parejas posibles (objeto, caja), de mayor a menor solape
+        # 2. Emparejamiento: se arman todas las parejas posibles (objeto, caja)
+        #    y se ordenan de mayor a menor solape (IoU)
         parejas = sorted(
             (
                 (iou(prediccion, caja), id_objeto, indice)
@@ -103,11 +110,13 @@ class SeguidorObjetos:
         )
         asignado = {}               # id del objeto -> índice de la caja
         cajas_usadas = set()
+        # Se recorren de la mejor pareja a la peor; cada objeto y cada caja se
+        # usan una sola vez (emparejamiento "voraz": primero lo más seguro)
         for solape, id_objeto, indice in parejas:
             if solape < config.IOU_EMPAREJAR:
-                break
+                break                   # de aquí en adelante casi no se solapan: no son el mismo
             if id_objeto in asignado or indice in cajas_usadas:
-                continue
+                continue                # ese objeto o esa caja ya tienen pareja
             asignado[id_objeto] = indice
             cajas_usadas.add(indice)
 
@@ -115,6 +124,7 @@ class SeguidorObjetos:
         for id_objeto, indice in asignado.items():
             objeto = self.objetos[id_objeto]
             nueva = cajas[indice]
+            # Cuánto se movió el centro de la caja desde el fotograma anterior
             dx = ((nueva[0] + nueva[2]) - (objeto.caja[0] + objeto.caja[2])) / 2
             dy = ((nueva[1] + nueva[3]) - (objeto.caja[1] + objeto.caja[3])) / 2
             area_antes = (objeto.caja[2] - objeto.caja[0]) * (objeto.caja[3] - objeto.caja[1])
@@ -157,7 +167,7 @@ class SeguidorObjetos:
                         break
             objeto.oculta_en = contenedor
             if objeto.perdidos > self.perdida_maxima:
-                del self.objetos[id_objeto]
+                del self.objetos[id_objeto]             # lleva demasiado sin verse: se olvida
 
         # Cajas sin pareja: objetos nuevos
         for indice, caja in enumerate(cajas):

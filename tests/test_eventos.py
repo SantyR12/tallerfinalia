@@ -33,6 +33,7 @@ def simular(escena, frames):
 
 
 def tipos(analizador):
+    """Lista con el tipo de cada evento detectado, en orden: ['riesgo', 'colision', ...]."""
     return [e.tipo for e in analizador.eventos]
 
 
@@ -122,6 +123,7 @@ def test_objeto_que_aparece_ya_en_contacto_no_es_colision():
 
 
 def test_trafico_en_el_mismo_sentido_no_genera_alertas():
+    """Tres vehículos en el mismo sentido y a la misma velocidad: ninguna alerta."""
     def escena(f):
         return [
             Det(1, "vehiculo", caja(100 + 5 * f, 300, 100, 60)),
@@ -145,6 +147,7 @@ def frenando(x0, v, f_freno, frames_frenado):
 
 
 def test_riesgo_cuando_un_carro_va_hacia_un_peaton_y_frena_antes():
+    """Hay riesgo (se acercaba rápido) pero no colisión (se detuvo antes del contacto)."""
     x_de = frenando(100, 6, 28, 30)             # frena durante 1 s y queda en x = 358
 
     def escena(f):
@@ -325,6 +328,7 @@ def test_caida_de_peaton():
 
 
 def test_caida_de_motociclista():
+    """La caja de la persona pasa de vertical a horizontal junto a una moto: caída de motociclista."""
     def escena(f):
         avance = min(max((f - 30) / 10, 0), 1)
         return [
@@ -348,6 +352,7 @@ def test_persona_a_la_que_se_le_pega_otra_mancha_no_es_caida():
 
 
 def test_persona_de_pie_no_es_caida():
+    """Una persona que camina de pie no genera alerta de caída."""
     def escena(f):
         return [Det(7, "persona", caja(300 + f, 400, 40, 100))]
 
@@ -356,6 +361,7 @@ def test_persona_de_pie_no_es_caida():
 
 # ------------------------------------------------------------------- resumen
 def test_resumen_cuenta_objetos_por_clase():
+    """El resumen cuenta cada objeto una vez e ignora los que aparecen solo un instante (ruido)."""
     def escena(f):
         objetos = [
             Det(1, "vehiculo", caja(100 + 5 * f, 300, 100, 60)),

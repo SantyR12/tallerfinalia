@@ -24,6 +24,7 @@ CLASES = ["carro", "fondo", "persona"]
 
 
 def imagen(clase, rng, tam=config.TAM_IMAGEN):
+    """Imagen sintética de 64 x 64: un rectángulo ancho (carro), uno alto (persona) o solo ruido (fondo)."""
     img = np.clip(rng.normal(95, 8, (tam, tam, 3)), 0, 255).astype(np.uint8)
     color = rng.integers(20, 235, 3)
     d = int(rng.integers(-4, 5))
@@ -35,6 +36,7 @@ def imagen(clase, rng, tam=config.TAM_IMAGEN):
 
 
 def test_arquitectura():
+    """La red tiene 3 capas convolucionales, 7 salidas y 1.142.855 parámetros."""
     modelo = construir_cnn(7)
     assert modelo.output_shape == (None, 7)
     assert sum(1 for capa in modelo.layers if isinstance(capa, keras.layers.Conv2D)) == 3
@@ -42,6 +44,7 @@ def test_arquitectura():
 
 
 def test_preparar_recorte():
+    """El recorte queda de 64 x 64, entre 0 y 1, en RGB y sin deformar."""
     frame = np.zeros((100, 200, 3), dtype=np.uint8)
     frame[20:60, 50:150] = (255, 0, 0)                  # azul en BGR
     recorte = preparar_recorte(frame, (50, 20, 150, 60))    # caja de 100 x 40: queda de 64 x 26
@@ -64,6 +67,7 @@ def test_encuadrar_no_deforma_la_imagen():
 
 
 def test_la_cnn_aprende_desde_cero_y_el_clasificador_la_usa(tmp_path):
+    """Se entrena la red unos segundos con imágenes sintéticas y se comprueba que el clasificador acierta."""
     keras.utils.set_random_seed(3)
     rng = np.random.default_rng(3)
     etiquetas = np.array([i % 3 for i in range(240)], dtype="int32")
@@ -111,5 +115,6 @@ def test_las_probabilidades_de_carro_bus_y_camion_se_suman(tmp_path):
 
 
 def test_sin_modelo_entrenado_el_error_dice_que_hacer(tmp_path):
+    """Si falta el archivo de la red, el mensaje de error indica el comando para entrenarla."""
     with pytest.raises(FileNotFoundError, match="entrenar_cnn.py"):
         ClasificadorCNN(str(tmp_path / "falta.keras"), str(tmp_path / "falta.json"))

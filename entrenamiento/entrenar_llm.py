@@ -39,7 +39,8 @@ def secuencia_de_fila(fila):
 
 
 def main(epocas=10, semilla=11):
-    keras.utils.set_random_seed(semilla)
+    """Lee el corpus, entrena el modelo de lenguaje, lo guarda y lo evalúa."""
+    keras.utils.set_random_seed(semilla)        # misma semilla = mismos resultados al repetir
     with open(config.RUTA_CORPUS, encoding="utf-8") as archivo:
         filas = list(csv.DictReader(archivo))
     random.Random(semilla).shuffle(filas)
@@ -65,8 +66,12 @@ def main(epocas=10, semilla=11):
         # del video son al azar: no hay nada que aprender en predecirlos.
         peso[i, inicio_pregunta - 1:len(indices) - 1] = 1.0
 
+    # 85 % entrenamiento, 10 % validación; el 5 % restante queda sin usar,
+    # porque la evaluación final se hace con casos nuevos (ver evaluar())
     n1, n2 = int(0.85 * len(x)), int(0.95 * len(x))
     modelo = construir_modelo_lenguaje(tam_vocabulario)
+    # La pérdida es la misma de un clasificador (entropía cruzada), aplicada en
+    # cada posición: en cada una hay que "clasificar" cuál es la ficha siguiente
     modelo.compile(optimizer=keras.optimizers.Adam(2e-3), loss="sparse_categorical_crossentropy",
                    weighted_metrics=["accuracy"])
     modelo.summary()

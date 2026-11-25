@@ -25,6 +25,7 @@ def procesar(fuente, carpeta_salida=config.CARPETA_SALIDAS, guardar_video=True,
     Entrega en cada paso: (fotograma anotado, eventos nuevos, analizador).
     Al terminar guarda los resultados en `carpeta_salida`.
     """
+    # ------------------------------------------------------------ preparación
     es_camara = isinstance(fuente, int)
     captura = cv2.VideoCapture(fuente)
     if not captura.isOpened():
@@ -40,17 +41,20 @@ def procesar(fuente, carpeta_salida=config.CARPETA_SALIDAS, guardar_video=True,
 
     carpeta = Path(carpeta_salida)
     (carpeta / "capturas").mkdir(parents=True, exist_ok=True)
+    for vieja in (carpeta / "capturas").glob("*.jpg"):      # capturas del análisis anterior
+        vieja.unlink()
     escritor = None
     activos = []                                # eventos que siguen en pantalla
     inicio = time.time()
     indice = -1
     leidos = 0
 
+    # ------------------------------------------------- ciclo: un fotograma por vuelta
     try:
         while True:
             ok, frame = captura.read()
             if not ok:
-                break
+                break                       # se acabó el video (o la cámara se desconectó)
             leidos += 1
 
             # Con un archivo, el tiempo es número de fotograma / fps.
@@ -65,6 +69,7 @@ def procesar(fuente, carpeta_salida=config.CARPETA_SALIDAS, guardar_video=True,
             detecciones = detector.detectar(frame)              # movimiento + CNN + seguimiento
             nuevos = analizador.actualizar(indice, detecciones) # reglas de eventos
 
+            # Las alertas se quedan en pantalla DURACION_ALERTA_S segundos
             tiempo = indice / fps
             activos = [e for e in activos + nuevos
                        if tiempo - e.tiempo_s <= config.DURACION_ALERTA_S]
@@ -83,11 +88,15 @@ def procesar(fuente, carpeta_salida=config.CARPETA_SALIDAS, guardar_video=True,
                                                codigo, fps, (ancho, alto))
                 escritor.write(anotado)
 
+            # yield entrega el resultado de este fotograma y "pausa" la función
+            # hasta que quien la usa (main.py o app.py) pida el siguiente
             yield anotado, nuevos, analizador
 
             if max_frames and leidos >= max_frames:
                 break
     finally:
+        # Este bloque se ejecuta siempre, también si el análisis se interrumpe:
+        # así los resultados quedan guardados
         captura.release()
         if escritor is not None:
             escritor.release()

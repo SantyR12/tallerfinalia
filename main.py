@@ -21,6 +21,7 @@ from src.asistente import Asistente, conversar
 
 
 def leer_argumentos():
+    """Define las opciones de la línea de comandos y lee las que escribió el usuario."""
     parser = argparse.ArgumentParser(description="Detección de accidentes de tránsito")
     fuente = parser.add_mutually_exclusive_group(required=True)
     fuente.add_argument("--video", help="ruta de un archivo de video")
@@ -39,8 +40,10 @@ def leer_argumentos():
 
 
 def analizar(args):
-    from src.video import procesar      # import tardío: --consultar no necesita la CNN
+    """Recorre el video mostrando las alertas y devuelve el analizador con los resultados."""
+    from src.video import procesar      # se importa aquí: --consultar no necesita cargar la CNN
 
+    # La fuente es el número de la cámara o la ruta del archivo
     fuente = args.camara if args.camara is not None else args.video
     pasos = procesar(fuente, carpeta_salida=args.salida, max_frames=args.max_frames)
     analizador = None
@@ -59,6 +62,7 @@ def analizar(args):
 
 
 def main():
+    """Analiza el video (o abre resultados guardados), imprime el informe y abre el asistente."""
     args = leer_argumentos()
 
     if args.consultar:
