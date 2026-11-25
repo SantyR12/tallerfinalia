@@ -44,8 +44,8 @@ Thumbs.db
 # Archivos temporales de Word
 ~$*
 
-# El informe en Word se entrega aparte, no va en el repositorio
-docs/*.docx
+# El informe, la presentación y el guion se entregan aparte, no van en el repositorio
+docs/
 
 # Temporales y registros
 *.log

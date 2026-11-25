@@ -89,8 +89,6 @@ video o cámara
 | Modelo de lenguaje | Transformer decodificador (tipo GPT) de 2 bloques, 107 mil parámetros | Sí, desde cero, con un CSV de 24 000 ejemplos |
 | Clasificador de intenciones | Transformer codificador de 1 bloque, 15 mil parámetros | Sí, desde cero, con un CSV de 7 300 preguntas |
 
-La explicación detallada está en [`docs/como_funciona.md`](docs/como_funciona.md).
-
 ## Instalación
 
 Requiere Python 3.10 o superior.
@@ -207,7 +205,6 @@ La tecla `Q` detiene el análisis. Opciones: `--sin-ventana`, `--max-frames 300`
 ├── datos/                    CSV de los datasets
 ├── modelos/                  Redes entrenadas (no se suben) y resultados del entrenamiento
 ├── tests/                    Pruebas automáticas
-├── docs/                     Informe, presentación, guion y explicación del código
 ├── data/                     Videos de prueba (no se suben al repositorio)
 └── salidas/                  Resultados (no se suben al repositorio)
 ```
@@ -248,7 +245,7 @@ git clone --depth 1 https://github.com/ashin-coder/vehicle-crash-detector ../vid
 python evaluar.py --carpeta ../videos_choques/test_videos
 ```
 
-Al final imprime cuántos choques detectó, las alertas de colisión falsas, la precisión y el recall. El script solo compara el momento de la alerta, no qué vehículos chocaron, así que hay que confirmar cada colisión mirando su captura: con los 17 videos cuenta 3 detectados, pero en `test (17).mp4` la alerta es entre dos vehículos ajenos al accidente. El resultado verificado es de 2 choques detectados de 17 y 1 alerta falsa. El resultado puede variar un poco de un computador a otro: cada instalación decodifica el video con diferencias mínimas en los píxeles, y eso basta para que el seguimiento pierda a un vehículo un instante antes o después. Por eso, cuando ya hubo una alerta de riesgo, la colisión se confirma aunque uno de los dos vehículos se haya perdido de vista (ver "Riesgo cumplido" en `docs/como_funciona.md`).
+Al final imprime cuántos choques detectó, las alertas de colisión falsas, la precisión y el recall. El script solo compara el momento de la alerta, no qué vehículos chocaron, así que hay que confirmar cada colisión mirando su captura: con los 17 videos cuenta 3 detectados, pero en `test (17).mp4` la alerta es entre dos vehículos ajenos al accidente. El resultado verificado es de 2 choques detectados de 17 y 1 alerta falsa. El resultado puede variar un poco de un computador a otro: cada instalación decodifica el video con diferencias mínimas en los píxeles, y eso basta para que el seguimiento pierda a un vehículo un instante antes o después. Por eso, cuando ya hubo una alerta de riesgo, la colisión se confirma aunque uno de los dos vehículos se haya perdido de vista.
 
 En `test (4).mp4` y `test (12).mp4` el sistema sigue a los dos vehículos, avisa del riesgo y después reporta la colisión. Son los videos de la demostración: se copian a `data/` con los nombres `demo_choque_interseccion.mp4` y `demo_choque_avenida.mp4` (deben ser los archivos originales; un video reenviado por una aplicación de mensajería queda recomprimido y el resultado puede cambiar).
 
